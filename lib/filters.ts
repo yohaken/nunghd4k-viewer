@@ -64,20 +64,20 @@ export const FILTER_GROUPS: FilterGroup[] = [
     label: "แพลตฟอร์ม",
     items: [
       { key: "netflix",    label: "Netflix",     icon: "🎬", type: "mode",   value: "netflix" },
-      { key: "disney",     label: "Disney+",     icon: "🏰", type: "search", value: "Disney+" },
+      { key: "disney",     label: "Disney+",     icon: "🏰", type: "search", value: "ดิสนีย์" },
       { key: "hbo",        label: "HBO",         icon: "📺", type: "search", value: "HBO" },
-      { key: "prime",      label: "Prime Video", icon: "📦", type: "search", value: "Prime Video" },
+      { key: "prime",      label: "Prime Video", icon: "📦", type: "search", value: "Prime" },
     ],
   },
   {
     id: "series",
     label: "ซีรีย์",
     items: [
-      { key: "series-korean",   label: "ซีรีย์เกาหลี",  icon: "🇰🇷", type: "search", value: "ซีรีย์เกาหลี" },
-      { key: "series-chinese",  label: "ซีรีย์จีน",    icon: "🇨🇳", type: "search", value: "ซีรีย์จีน" },
-      { key: "series-western",  label: "ซีรีย์ฝรั่ง",   icon: "🇺🇸", type: "search", value: "ซีรีย์ฝรั่ง" },
-      { key: "series-thai",     label: "ซีรีย์ไทย",    icon: "🇹🇭", type: "search", value: "ซีรีย์ไทย" },
-      { key: "series-japanese", label: "ซีรีย์ญี่ปุ่น",  icon: "🇯🇵", type: "search", value: "ซีรีย์ญี่ปุ่น" },
+      { key: "series-korean",   label: "ซีรีย์เกาหลี",  icon: "🇰🇷", type: "search", value: "เกาหลี" },
+      { key: "series-chinese",  label: "ซีรีย์จีน",    icon: "🇨🇳", type: "search", value: "จีน" },
+      { key: "series-western",  label: "ซีรีย์ฝรั่ง",   icon: "🇺🇸", type: "search", value: "ฝรั่ง" },
+      { key: "series-thai",     label: "ซีรีย์ไทย",    icon: "🇹🇭", type: "search", value: "ไทย" },
+      { key: "series-japanese", label: "ซีรีย์ญี่ปุ่น",  icon: "🇯🇵", type: "search", value: "ญี่ปุ่น" },
     ],
   },
 ];

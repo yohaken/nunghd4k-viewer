@@ -32,13 +32,10 @@ async function getWpCategoryMap(): Promise<Map<string, number>> {
 
 /** Extract category slug from a nunghd4k category URL */
 export function slugFromCatUrl(url: string): string | null {
-  try {
-    const p = new URL(url).pathname;
-    return (p.replace(/\/+$/, "").split("/").pop() || null)?.toLowerCase() ?? null;
-  } catch {
-    const m = url.match(/\/([^/]+)\/?$/);
-    return m ? m[1].toLowerCase() : null;
-  }
+  // Use regex instead of new URL().pathname to preserve percent-encoding
+  // (new URL decodes %e0%b8%95 to Thai chars, but WP stores percent-encoded slugs)
+  const m = url.match(/\/([^/]+)\/?$/);
+  return m ? m[1].toLowerCase() : null;
 }
 
 // Mode → WP category ID mapping (for REST API pagination)
