@@ -189,7 +189,15 @@ export async function searchLiveFromSource(query: string, page: number): Promise
 
   const movies: Movie[] = posts.map((p) => ({
     slug: p.slug,
-    title: p.title.rendered.replace(/&#8211;/g, "–").replace(/&#8217;/g, "'").replace(/&amp;/g, "&"),
+    title: p.title.rendered
+      .replace(/&#8211;/g, "–")
+      .replace(/&#8217;/g, "'")
+      .replace(/&#8216;/g, "'")
+      .replace(/&#8220;/g, "\u201C")
+      .replace(/&#8221;/g, "\u201D")
+      .replace(/&#038;/g, "&")
+      .replace(/&amp;/g, "&")
+      .replace(/&#8230;/g, "\u2026"),
     image: p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "",
     rating: null,
     quality: null,
