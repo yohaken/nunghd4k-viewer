@@ -1,95 +1,93 @@
-interface AllowedData {
-  admin: string;
-  allowed: string[];
-}
+import { getFirestore } from "firebase-admin/firestore";
+import "@/lib/firebase-admin";
 
-let _allowed: AllowedData | null = null;
+const COL = "settings";
+const DOC = "allowed-emails";
 
 const DEFAULT: AllowedData = {
   admin: "yohaken@gmail.com",
   allowed: ["yohaken@gmail.com"],
 };
 
-function getFsPath() {
-  // In Next.js, process is available at runtime
-  try {
-    const path = require("path");
-    return path.join(process.cwd(), "allowed-emails.json");
-  } catch {
-    return null;
-  }
+interface AllowedData {
+  admin: string;
+  allowed: string[];
 }
 
-function readFile(): AllowedData | null {
-  try {
-    const filePath = getFsPath();
-    if (!filePath) return null;
-    const fs = require("fs");
-    if (!fs.existsSync(filePath)) return null;
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch {
-    return null;
-  }
-}
+let _allowed: AllowedData | null = null;
+let _loadedAt = 0;
+const CACHE_TTL = 15_000; // 15s cache to avoid hitting Firestore on every request
 
-function writeFile(data: AllowedData): void {
-  try {
-    const filePath = getFsPath();
-    if (!filePath) return;
-    const fs = require("fs");
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  } catch { /* best effort */ }
-}
+async function loadFirestore(): Promise<AllowedData> {
+  if (_allowed && Date.now() - _loadedAt < CACHE_TTL) return _allowed;
 
-function load(): AllowedData {
-  if (_allowed) return _allowed;
+  const firestore = getFirestore();
+  const snap = await firestore.collection(COL).doc(DOC).get();
 
-  const fromFile = readFile();
-  if (fromFile) {
-    _allowed = fromFile;
+  if (snap.exists) {
+    _allowed = snap.data() as AllowedData;
+    _loadedAt = Date.now();
     return _allowed;
   }
 
+  // First time — seed with default
+  await firestore.collection(COL).doc(DOC).set(DEFAULT);
   _allowed = { ...DEFAULT };
-  writeFile(_allowed);
+  _loadedAt = Date.now();
   return _allowed;
 }
 
-export function isAllowed(email: string): boolean {
-  const d = load();
+async function saveFirestore(data: AllowedData): Promise<void> {
+  const firestore = getFirestore();
+  await firestore.collection(COL).doc(DOC).set(data);
+  _allowed = data;
+  _loadedAt = Date.now();
+}
+
+export async function isAllowed(email: string): Promise<boolean> {
+  const d = await loadFirestore();
   return d.allowed.includes(email.toLowerCase());
 }
 
-export function isAdmin(email: string): boolean {
-  const d = load();
+/** Synchronous version for Edge-compatible middleware usage.
+ *  Falls back to in-memory cache only (no Firestore). */
+export function isAllowedSync(email: string): boolean {
+  if (!_allowed) { // If cache is empty (Edge/startup), just for auth flow
+    _allowed = { ...DEFAULT };
+  }
+  return _allowed.allowed.includes(email.toLowerCase());
+}
+
+export async function isAdmin(email: string): Promise<boolean> {
+  const d = await loadFirestore();
   return d.admin === email.toLowerCase();
 }
 
-export function getAllowedEmails(): string[] {
-  const d = load();
+export async function getAllowedEmails(): Promise<string[]> {
+  const d = await loadFirestore();
   return [...d.allowed];
 }
 
-export function getAdmin(): string {
-  const d = load();
+export async function getAdmin(): Promise<string> {
+  const d = await loadFirestore();
   return d.admin;
 }
 
-export function addEmail(email: string): boolean {
-  const d = load();
+export async function addEmail(email: string): Promise<boolean> {
+  const d = await loadFirestore();
   const e = email.toLowerCase().trim();
   if (!e || d.allowed.includes(e)) return false;
   d.allowed.push(e);
-  writeFile(d);
+  await saveFirestore(d);
   return true;
 }
 
-export function removeEmail(email: string): boolean {
-  const d = load();
+export async function removeEmail(email: string): Promise<boolean> {
+  const d = await loadFirestore();
   const e = email.toLowerCase().trim();
   const idx = d.allowed.indexOf(e);
   if (idx === -1) return false;
   d.allowed.splice(idx, 1);
-  writeFile(d);
+  await saveFirestore(d);
   return true;
 }

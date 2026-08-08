@@ -18,7 +18,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           const decoded = await getAuth().verifyIdToken(idToken);
           if (!decoded.email) return null;
-          if (!isAllowed(decoded.email)) return null;
+          if (!await isAllowed(decoded.email)) return null;
 
           return {
             id: decoded.uid,
