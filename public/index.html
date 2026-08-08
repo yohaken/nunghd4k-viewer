@@ -76,6 +76,13 @@
     .server-btn{padding:7px 14px;border:1px solid var(--border);background:var(--hover);color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;transition:all .2s}
     .server-btn:hover{background:var(--primary);color:#000;border-color:var(--primary)}
     .server-btn.active{background:var(--primary);color:#000;border-color:var(--primary);font-weight:600}
+    .server-btn.tried{background:rgba(102,204,0,.15);border-color:var(--primary);opacity:.6}
+    .server-btn .status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+    .server-btn .status-dot.loading{background:#FFD700;animation:pulse 1s infinite}
+    .server-btn .status-dot.fail{background:var(--danger)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .player-hint{text-align:center;padding:8px 20px 4px;color:var(--dim);font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+    .player-hint button{background:var(--primary);color:#000;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
     .pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:24px;padding:16px 0}
     .pagination button{padding:8px 18px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
     .pagination button:hover:not(:disabled){background:var(--primary);color:#000;border-color:var(--primary)}
@@ -116,10 +123,7 @@
       <ul id="categoryList"><li><a class="active" data-cat="">ทั้งหมด</a></li></ul>
     </aside>
     <main class="main">
-      <div class="section-bar">
-        <div class="section-title" id="sectionTitle">หนังทั้งหมด</div>
-        <div class="result-count" id="resultCount"></div>
-      </div>
+      <div class="section-bar"><div class="section-title" id="sectionTitle">หนังทั้งหมด</div><div class="result-count" id="resultCount"></div></div>
       <div class="movie-grid" id="movieGrid"><div class="loading"><div class="spinner"></div><span class="loading-text">กำลังโหลด...</span></div></div>
       <div class="pagination" id="pagination"></div>
     </main>
@@ -129,6 +133,7 @@
     <div class="modal">
       <div class="modal-header"><h3 id="modalTitle"></h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="video-wrap" id="videoWrap"><div class="no-video">กำลังโหลดวิดีโอ...</div></div>
+      <div class="player-hint" id="playerHint" style="display:none"></div>
       <div class="modal-footer" id="modalServers"></div>
     </div>
   </div>
@@ -147,122 +152,185 @@
       await Promise.all([loadCats(),load()]);
       setInterval(updateStatus,15000);
     }
-
     async function loadCats(){
-      try{
-        const r=await fetch('/api/categories'),cats=await r.json();
-        const ul=document.getElementById('categoryList');
-        ul.innerHTML='<li><a class="active" data-cat="">ทั้งหมด</a></li>';
-        cats.forEach(c=>{const li=document.createElement('li'),a=document.createElement('a');a.textContent=c.name;a.dataset.cat=c.name;a.addEventListener('click',()=>selCat(c.name,a));li.appendChild(a);ul.appendChild(li)})
-      }catch(e){}
+      try{const r=await fetch('/api/categories'),cats=await r.json();const ul=document.getElementById('categoryList');ul.innerHTML='<li><a class="active" data-cat="">ทั้งหมด</a></li>';cats.forEach(c=>{const li=document.createElement('li'),a=document.createElement('a');a.textContent=c.name;a.dataset.cat=c.name;a.addEventListener('click',()=>selCat(c.name,a));li.appendChild(a);ul.appendChild(li)})}catch(e){}
     }
-
-    function selCat(name,el){
-      cur.search=''; document.getElementById('searchInput').value=''; document.getElementById('clearBtn').style.display='none'; cur.page=1;
-      document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active')); if(el)el.classList.add('active');
-      document.getElementById('sectionTitle').textContent=name||'หนังทั้งหมด'; load();
-    }
-
+    function selCat(name,el){cur.search='';document.getElementById('searchInput').value='';document.getElementById('clearBtn').style.display='none';cur.page=1;document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('sectionTitle').textContent=name||'หนังทั้งหมด';load()}
     async function load(){
-      const g=document.getElementById('movieGrid');
-      g.innerHTML='<div class="loading"><div class="spinner"></div><span class="loading-text">กำลังโหลด...</span></div>';
-      if(cur.nav==='imdb'){loadSorted();return}
-      if(cur.nav==='request'){showRequest();return}
+      const g=document.getElementById('movieGrid');g.innerHTML='<div class="loading"><div class="spinner"></div><span class="loading-text">กำลังโหลด...</span></div>';
+      if(cur.nav==='imdb'){loadSorted();return}if(cur.nav==='request'){showRequest();return}
       const p=new URLSearchParams();p.set('limit',LIMIT);p.set('page',cur.page);if(cur.search)p.set('search',cur.search);
-      try{
-        const r=await fetch('/api/movies?'+p),d=await r.json();
-        cur.total=d.total; render(d.movies); paginate();
-        document.getElementById('resultCount').textContent=d.total+' เรื่อง';
-      }catch(e){g.innerHTML='<div class="empty-state"><div class="icon">!</div><p>โหลดไม่สำเร็จ</p></div>'}
+      try{const r=await fetch('/api/movies?'+p),d=await r.json();cur.total=d.total;render(d.movies);paginate();document.getElementById('resultCount').textContent=d.total+' เรื่อง'}catch(e){g.innerHTML='<div class="empty-state"><div class="icon">!</div><p>โหลดไม่สำเร็จ</p></div>'}
     }
-
-    async function loadSorted(){
-      const g=document.getElementById('movieGrid');
-      try{
-        const r=await fetch('/api/movies?limit=9999'),d=await r.json();
-        let m=d.movies.filter(x=>x.rating&&!isNaN(parseFloat(x.rating))); m.sort((a,b)=>parseFloat(b.rating)-parseFloat(a.rating));
-        cur.total=m.length; const s=(cur.page-1)*LIMIT; render(m.slice(s,s+LIMIT)); paginate();
-        document.getElementById('resultCount').textContent=cur.total+' เรื่อง (เรียงคะแนน)';
-      }catch(e){g.innerHTML='<div class="empty-state"><div class="icon">!</div><p>โหลดไม่สำเร็จ</p></div>'}
+    async function loadSorted(){const g=document.getElementById('movieGrid');
+      try{const r=await fetch('/api/movies?limit=9999'),d=await r.json();let m=d.movies.filter(x=>x.rating&&!isNaN(parseFloat(x.rating)));m.sort((a,b)=>parseFloat(b.rating)-parseFloat(a.rating));cur.total=m.length;const s=(cur.page-1)*LIMIT;render(m.slice(s,s+LIMIT));paginate();document.getElementById('resultCount').textContent=cur.total+' เรื่อง (เรียงคะแนน)'}catch(e){g.innerHTML='<div class="empty-state"><div class="icon">!</div><p>โหลดไม่สำเร็จ</p></div>'}
     }
-
-    function showRequest(){
-      document.getElementById('sectionTitle').textContent='ขอหนัง';
-      document.getElementById('movieGrid').innerHTML='<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">&#x1F4E9;</div><p>ติดต่อขอหนังผ่านเว็บหลัก</p><a href="https://www.nunghd4k.com/%E0%B8%95%E0%B8%B4%E0%B8%94%E0%B8%95%E0%B9%88%E0%B8%AD%E0%B9%80%E0%B8%A3%E0%B8%B2" target="_blank" style="color:var(--primary);margin-top:8px;display:inline-block">ไปหน้าติดต่อเรา &rarr;</a></div>';
-      document.getElementById('pagination').innerHTML=''; document.getElementById('resultCount').textContent='';
-    }
-
-    function render(movies){
-      const g=document.getElementById('movieGrid');
-      if(!movies.length){g.innerHTML='<div class="empty-state"><div class="icon">&#x1F50D;</div><p>ไม่พบ</p></div>';return}
-      g.innerHTML=movies.map(m=>`
-        <div class="movie-card" onclick="openMovie('${esc(m.slug)}','${esc(m.title)}')" title="${esc(m.title)}">
-          <div class="poster">
-            <img src="${m.image||''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22350%22 height=%22465%22><rect fill=%22%23222%22 width=%22350%22 height=%22465%22/><text x=%22175%22 y=%22232%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>No Image</text></svg>'">
-            <div class="play-overlay"><div class="play-btn">&#x25B6;</div></div>
-            <div class="badge-row">
-              ${m.quality?`<span class="badge badge-quality">${esc(m.quality)}</span>`:'<span></span>'}
-              ${m.rating?`<span class="badge badge-rating">${esc(m.rating)}</span>`:'<span></span>'}
-            </div>
-          </div>
-          <div class="info">${m.language?`<span class="lang-badge">${esc(m.language)}</span>`:''}<div class="title">${esc(m.title)}</div></div>
-        </div>`).join('');
-    }
-
-    function paginate(){
-      const tp=Math.ceil(cur.total/LIMIT),c=document.getElementById('pagination');
-      if(tp<=1){c.innerHTML='';return}
-      c.innerHTML=`<button ${cur.page<=1?'disabled':''} onclick="go(${cur.page-1})">&#x2039; ก่อนหน้า</button><span class="page-info">หน้า ${cur.page} / ${tp} — ${cur.total} เรื่อง</span><button ${cur.page>=tp?'disabled':''} onclick="go(${cur.page+1})">ถัดไป &#x203A;</button>`;
-    }
+    function showRequest(){document.getElementById('sectionTitle').textContent='ขอหนัง';document.getElementById('movieGrid').innerHTML='<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">&#x1F4E9;</div><p>ติดต่อขอหนังผ่านเว็บหลัก</p><a href="https://www.nunghd4k.com/%E0%B8%95%E0%B8%B4%E0%B8%94%E0%B8%95%E0%B9%88%E0%B8%AD%E0%B9%80%E0%B8%A3%E0%B8%B2" target="_blank" style="color:var(--primary);margin-top:8px;display:inline-block">ไปหน้าติดต่อเรา &rarr;</a></div>';document.getElementById('pagination').innerHTML='';document.getElementById('resultCount').textContent=''}
+    function render(movies){const g=document.getElementById('movieGrid');if(!movies.length){g.innerHTML='<div class="empty-state"><div class="icon">&#x1F50D;</div><p>ไม่พบ</p></div>';return}g.innerHTML=movies.map(m=>`<div class="movie-card" onclick="openMovie('${esc(m.slug)}','${esc(m.title)}')" title="${esc(m.title)}"><div class="poster"><img src="${m.image||''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22350%22 height=%22465%22><rect fill=%22%23222%22 width=%22350%22 height=%22465%22/><text x=%22175%22 y=%22232%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>No Image</text></svg>'"><div class="play-overlay"><div class="play-btn">&#x25B6;</div></div><div class="badge-row">${m.quality?`<span class="badge badge-quality">${esc(m.quality)}</span>`:'<span></span>'}${m.rating?`<span class="badge badge-rating">${esc(m.rating)}</span>`:'<span></span>'}</div></div><div class="info">${m.language?`<span class="lang-badge">${esc(m.language)}</span>`:''}<div class="title">${esc(m.title)}</div></div></div>`).join('')}
+    function paginate(){const tp=Math.ceil(cur.total/LIMIT),c=document.getElementById('pagination');if(tp<=1){c.innerHTML='';return}c.innerHTML=`<button ${cur.page<=1?'disabled':''} onclick="go(${cur.page-1})">&#x2039; ก่อนหน้า</button><span class="page-info">หน้า ${cur.page} / ${tp} — ${cur.total} เรื่อง</span><button ${cur.page>=tp?'disabled':''} onclick="go(${cur.page+1})">ถัดไป &#x203A;</button>`}
     function go(p){cur.page=p;load();window.scrollTo({top:0,behavior:'smooth'})}
-
-    function navTo(nav,el){
-      cur.nav=nav; cur.search=''; cur.page=1;
-      document.getElementById('searchInput').value=''; document.getElementById('clearBtn').style.display='none';
-      document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active')); if(el)el.classList.add('active');
-      document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));
-      document.querySelector('#categoryList a:first-child')?.classList.add('active');
-      document.getElementById('sectionTitle').textContent=el?el.textContent:'หนังทั้งหมด';
-      if(NAV[nav]&&nav!=='imdb'&&nav!=='request'){cur.search=NAV[nav];document.getElementById('sectionTitle').textContent=el.textContent}
-      load();
-    }
-
-    function onInput(){
-      const v=document.getElementById('searchInput').value.trim();
-      document.getElementById('clearBtn').style.display=v?'block':'none';
-      document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));
-      document.querySelector('#categoryList a:first-child')?.classList.add('active');
-      document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active'));
-      cur.search=v; cur.page=1; cur.nav='home';
-      document.getElementById('sectionTitle').textContent=v?`ผลค้นหา: "${v}"`:'หนังทั้งหมด';
-      load();
-    }
+    function navTo(nav,el){cur.nav=nav;cur.search='';cur.page=1;document.getElementById('searchInput').value='';document.getElementById('clearBtn').style.display='none';document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active'));if(el)el.classList.add('active');document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));document.querySelector('#categoryList a:first-child')?.classList.add('active');document.getElementById('sectionTitle').textContent=el?el.textContent:'หนังทั้งหมด';if(NAV[nav]&&nav!=='imdb'&&nav!=='request'){cur.search=NAV[nav];document.getElementById('sectionTitle').textContent=el.textContent}load()}
+    function onInput(){const v=document.getElementById('searchInput').value.trim();document.getElementById('clearBtn').style.display=v?'block':'none';document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));document.querySelector('#categoryList a:first-child')?.classList.add('active');document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active'));cur.search=v;cur.page=1;cur.nav='home';document.getElementById('sectionTitle').textContent=v?`ผลค้นหา: "${v}"`:'หนังทั้งหมด';load()}
     function doSearch(){document.getElementById('searchInput').dispatchEvent(new Event('input'))}
     function clearSearch(){cur.search='';cur.page=1;document.getElementById('searchInput').value='';document.getElementById('clearBtn').style.display='none';document.getElementById('sectionTitle').textContent='หนังทั้งหมด';load()}
     function resetAll(){cur.search='';cur.page=1;cur.nav='home';document.getElementById('searchInput').value='';document.getElementById('clearBtn').style.display='none';document.getElementById('sectionTitle').textContent='หนังทั้งหมด';document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active'));document.querySelector('#topNav a:first-child')?.classList.add('active');document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));document.querySelector('#categoryList a:first-child')?.classList.add('active');load()}
 
-    async function openMovie(slug,title){
-      document.getElementById('modalTitle').textContent=title;
-      document.getElementById('videoWrap').innerHTML='<div class="no-video"><div class="spinner"></div>กำลังโหลดวิดีโอ...</div>';
-      document.getElementById('modalServers').innerHTML='';
-      document.getElementById('modalOverlay').style.display='flex'; document.body.style.overflow='hidden';
-      try{
-        const r=await fetch('/api/movie/'+encodeURIComponent(slug)),m=await r.json();
-        document.getElementById('modalTitle').textContent=m.title||title;
-        const sv=[];
-        if(m.hlsEmbedUrl)sv.push({label:'HLS หลัก',url:m.hlsEmbedUrl});
-        if(m.youtubeUrl)sv.push({label:'YouTube',url:m.youtubeUrl});
-        m.playerUrls?.forEach((u,i)=>{sv.push({label:u.includes('vid.php')?'ตัวเล่นเว็บ':`สำรอง ${i+1}`,url:u})});
-        if(!sv.length){document.getElementById('videoWrap').innerHTML='<div class="no-video">&#x1F615; ไม่พบลิงก์วิดีโอ</div>';return}
-        document.getElementById('videoWrap').innerHTML=`<iframe src="${esc(sv[0].url)}" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
-        if(sv.length>1)document.getElementById('modalServers').innerHTML=sv.map((s,i)=>`<button class="server-btn${i===0?' active':''}" onclick="switchSvr('${esc(s.url)}',this)">${s.label}</button>`).join('');
-      }catch(e){document.getElementById('videoWrap').innerHTML='<div class="no-video">&#x26A0; โหลดไม่สำเร็จ</div>'}
+    // ============ AUTO-FALLBACK VIDEO PLAYER ============
+    let _playerTimers = {};
+    let _playerState = {};
+
+    async function openMovie(slug, title) {
+      _playerState = {}; _playerTimers = {};
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('videoWrap').innerHTML = '<div class="no-video"><div class="spinner"></div>กำลังโหลดแหล่งวิดีโอ...</div>';
+      document.getElementById('modalServers').innerHTML = '';
+      document.getElementById('playerHint').style.display = 'none';
+      document.getElementById('modalOverlay').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+
+      try {
+        const r = await fetch('/api/movie/' + encodeURIComponent(slug));
+        const m = await r.json();
+        document.getElementById('modalTitle').textContent = m.title || title;
+
+        // Build server list: YouTube FIRST (proven 100% working), then HLS, then backups
+        const servers = [];
+        if (m.youtubeUrl) servers.push({ label: 'YouTube', url: m.youtubeUrl, type: 'yt' });
+        if (m.hlsEmbedUrl) servers.push({ label: 'HLS Player', url: m.hlsEmbedUrl, type: 'hls' });
+        if (m.playerUrls) m.playerUrls.forEach((u, i) => servers.push({ label: u.includes('vid.php') ? 'ตัวเล่นเว็บ' : `ตัวเล่นสำรอง ${i+1}`, url: u, type: 'alt' }));
+
+        if (!servers.length) {
+          document.getElementById('videoWrap').innerHTML = '<div class="no-video">&#x1F615; ไม่พบลิงก์วิดีโอ</div>';
+          return;
+        }
+
+        _playerState = { servers, currentIdx: 0, tried: new Set(), allFailed: false };
+        tryServer(0);
+      } catch (e) {
+        document.getElementById('videoWrap').innerHTML = '<div class="no-video">&#x26A0; โหลดไม่สำเร็จ</div>';
+      }
     }
-    function switchSvr(url,b){
-      document.getElementById('videoWrap').innerHTML=`<iframe src="${esc(url)}" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
-      document.querySelectorAll('#modalServers .server-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+
+    function tryServer(idx) {
+      if (idx >= _playerState.servers.length) {
+        _playerState.allFailed = true;
+        allServersFailed();
+        return;
+      }
+
+      _playerState.currentIdx = idx;
+      const server = _playerState.servers[idx];
+      _playerState.tried.add(idx);
+
+      // Show loading state
+      document.getElementById('videoWrap').innerHTML =
+        `<div class="no-video"><div class="spinner"></div>กำลังลอง: ${server.label}...</div>`;
+
+      // Render all server buttons with status
+      renderServerButtons();
+
+      // Load iframe
+      const iframeId = 'player-frame-' + Date.now();
+      document.getElementById('videoWrap').innerHTML =
+        `<iframe id="${iframeId}" src="${esc(server.url)}" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe>`;
+
+      // Auto-fallback after timeout if iframe doesn't signal "loaded"
+      const timeout = server.type === 'yt' ? 6000 : 8000;
+      _playerTimers.fallback = setTimeout(() => {
+        console.log(`[auto-fallback] ${server.label} timed out, trying next...`);
+        markTried(idx);
+        tryServer(idx + 1);
+      }, timeout);
+
+      // Try to detect iframe load
+      const iframe = document.getElementById(iframeId);
+      if (iframe) {
+        iframe.addEventListener('load', () => {
+          clearTimeout(_playerTimers.fallback);
+          // Mark as success after a delay to ensure content actually renders
+          _playerTimers.success = setTimeout(() => {
+            document.getElementById('playerHint').style.display = 'none';
+            renderServerButtons(); // show active state
+          }, 1500);
+        });
+        iframe.addEventListener('error', () => {
+          clearTimeout(_playerTimers.fallback);
+          markTried(idx);
+          tryServer(idx + 1);
+        });
+      }
     }
-    function closeModal(){document.getElementById('modalOverlay').style.display='none';document.body.style.overflow='';document.getElementById('videoWrap').innerHTML=''}
+
+    function markTried(idx) {
+      _playerState.tried.add(idx);
+      renderServerButtons();
+    }
+
+    function renderServerButtons() {
+      const servers = _playerState.servers;
+      if (servers.length <= 1) { document.getElementById('modalServers').innerHTML = ''; return; }
+
+      document.getElementById('modalServers').innerHTML = servers.map((s, i) => {
+        let cls = 'server-btn';
+        let dot = '';
+        if (i === _playerState.currentIdx && !_playerState.allFailed) {
+          cls += ' active';
+          dot = '<span class="status-dot loading"></span>';
+        } else if (_playerState.tried.has(i)) {
+          cls += ' tried';
+          dot = '<span class="status-dot fail"></span>';
+        }
+        return `<button class="${cls}" onclick="manualSwitch(${i})">${dot}${s.label}</button>`;
+      }).join('');
+    }
+
+    function manualSwitch(idx) {
+      clearTimeout(_playerTimers.fallback);
+      clearTimeout(_playerTimers.success);
+      _playerState.allFailed = false;
+      document.getElementById('playerHint').style.display = 'none';
+      tryServer(idx);
+    }
+
+    function allServersFailed() {
+      document.getElementById('videoWrap').innerHTML = `
+        <div class="no-video">
+          <div style="font-size:40px;margin-bottom:12px">&#x1F615;</div>
+          <p>ไม่สามารถเล่นวิดีโอได้จากทุกแหล่ง</p>
+          <p style="font-size:13px;margin-top:6px">หากดูหนังออนไลน์ไม่ได้ ลองรีเฟรชแล้วเปิดใหม่อีกครั้ง</p>
+        </div>`;
+      document.getElementById('playerHint').style.display = 'block';
+      document.getElementById('playerHint').innerHTML = `
+        <button onclick="retryAll()">&#x21BB; ลองใหม่อีกครั้ง</button>
+        <span style="font-size:12px">หรือปิดแล้วเปิดใหม่</span>`;
+      renderServerButtons();
+    }
+
+    function retryAll() {
+      clearTimeout(_playerTimers.fallback);
+      clearTimeout(_playerTimers.success);
+      _playerState.tried = new Set();
+      _playerState.allFailed = false;
+      _playerState.currentIdx = 0;
+      document.getElementById('playerHint').style.display = 'none';
+      tryServer(0);
+    }
+
+    function switchSvr(url, btn) {
+      // Legacy manual override (kept for backward compat)
+      document.getElementById('videoWrap').innerHTML = `<iframe src="${esc(url)}" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
+      document.querySelectorAll('#modalServers .server-btn').forEach(x => x.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function closeModal() {
+      clearTimeout(_playerTimers.fallback);
+      clearTimeout(_playerTimers.success);
+      document.getElementById('modalOverlay').style.display = 'none';
+      document.body.style.overflow = '';
+      document.getElementById('videoWrap').innerHTML = '';
+      document.getElementById('playerHint').style.display = 'none';
+    }
 
     async function updateStatus(){
       try{const r=await fetch('/api/status'),s=await r.json();document.getElementById('headerInfo').innerHTML=`<span class="count">${s.totalMovies}</span> เรื่อง &middot; ${fmt(s.scrapedAt)}`}catch(e){}
