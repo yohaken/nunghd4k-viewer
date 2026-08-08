@@ -1,45 +1,25 @@
 import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { getAuth } from "firebase-admin/auth";
+import Google from "next-auth/providers/google";
 import { isAllowed } from "@/lib/allowed-emails";
 import "@/lib/firebase-admin";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    Credentials({
-      name: "firebase",
-      credentials: {
-        idToken: { label: "Firebase ID Token", type: "text" },
-      },
-      async authorize(credentials) {
-        const idToken = credentials?.idToken;
-        if (typeof idToken !== "string" || !idToken) return null;
-
-        try {
-          const decoded = await getAuth().verifyIdToken(idToken);
-          if (!decoded.email) return null;
-          const allowed = await isAllowed(decoded.email);
-          console.log(`[auth] email=${decoded.email} allowed=${allowed}`);
-          if (!allowed) return null;
-
-          return {
-            id: decoded.uid,
-            email: decoded.email,
-            name: decoded.name || decoded.email.split("@")[0],
-            image: decoded.picture || "",
-          };
-        } catch (err) {
-          console.error("[auth] authorize error:", err);
-          return null;
-        }
-      },
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
   secret: process.env.AUTH_SECRET,
-  session: { strategy: "jwt" },
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/login",
   },
-  trustHost: true,
+  callbacks: {
+    async signIn({ user }) {
+      if (!user.email) return false;
+      return isAllowed(user.email);
+    },
+  },
 });

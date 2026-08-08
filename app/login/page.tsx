@@ -1,68 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { signIn } from "next-auth/react";
-import {
-  signInWithRedirect,
-  getRedirectResult,
-  type User,
-} from "firebase/auth";
-import { auth as firebaseAuth, googleProvider } from "@/lib/firebase-client";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const result = await getRedirectResult(firebaseAuth);
-        if (!result || cancelled) return;
-
-        const user: User = result.user;
-        const idToken = await user.getIdToken();
-
-        // Use redirect:true — next-auth sets the session cookie
-        // and redirects in a single atomic HTTP response
-        const res = await signIn("credentials", {
-          idToken,
-          redirect: false,
-        });
-
-        if (cancelled) return;
-
-        if (res?.error) {
-          setError(
-            res.error === "AccessDenied"
-              ? "อีเมลนี้ไม่ได้รับอนุญาตให้เข้าใช้งาน"
-              : "เกิดข้อผิดพลาดในการยืนยันตัวตน กรุณาลองใหม่"
-          );
-        } else if (res?.ok) {
-          // Small delay to ensure cookie is written before navigating
-          await new Promise((r) => setTimeout(r, 100));
-          window.location.replace("/");
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setError("เกิดข้อผิดพลาด: " + (e?.message || "กรุณาลองใหม่"));
-        }
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleSignIn = async () => {
+  const handleSignIn = () => {
     setLoading(true);
-    setError("");
-    try {
-      await signInWithRedirect(firebaseAuth, googleProvider);
-    } catch (e: any) {
-      setLoading(false);
-      setError("เกิดข้อผิดพลาด: " + (e?.message || "กรุณาลองใหม่"));
-    }
+    signIn("google", { callbackUrl: "/" });
   };
 
   return (
@@ -84,12 +30,6 @@ export default function LoginPage() {
           <p className="text-dim text-xs text-center mb-5">
             ใช้บัญชี Google เพื่อเข้าใช้งาน
           </p>
-
-          {error && (
-            <div className="bg-danger/10 border border-danger/30 text-danger text-sm rounded-btn px-4 py-2.5 mb-4 text-center font-body">
-              {error}
-            </div>
-          )}
 
           <button
             onClick={handleSignIn}
