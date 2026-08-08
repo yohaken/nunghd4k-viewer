@@ -23,12 +23,12 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCat, setActiveCat] = useState("");
+  const [activeCatUrl, setActiveCatUrl] = useState(""); // URL for live category fetch
   const [modalMovie, setModalMovie] = useState<Movie | null>(null);
   const [totalMovies, setTotalMovies] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("");
   const [source, setSource] = useState("");
 
-  // Request counter to discard stale responses (race condition guard)
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -61,8 +61,11 @@ export default function HomePage() {
     params.set("limit", String(LIMIT));
     params.set("page", String(page));
 
-    if (search || activeCat) {
-      params.set("search", search || activeCat);
+    // Category filter: live fetch from WP category endpoint (uses category URL)
+    if (activeCatUrl) {
+      params.set("cat", activeCatUrl);
+    } else if (search) {
+      params.set("search", search);
     } else {
       params.set("mode", nav);
     }
@@ -71,7 +74,6 @@ export default function HomePage() {
       const res = await fetch(`/api/movies?${params}`);
       const data = await res.json();
 
-      // Discard if a newer request was already made
       if (id !== requestId.current) return;
 
       setMovies(data.movies);
@@ -85,7 +87,7 @@ export default function HomePage() {
       }
     }
     if (id === requestId.current) setLoading(false);
-  }, [nav, search, activeCat, page]);
+  }, [nav, search, activeCatUrl, page]);
 
   useEffect(() => {
     loadMovies();
@@ -95,25 +97,37 @@ export default function HomePage() {
     setNav(key);
     setSearch("");
     setActiveCat("");
+    setActiveCatUrl("");
     setPage(1);
   }, []);
 
   const handleSearch = useCallback(() => {
     setActiveCat("");
+    setActiveCatUrl("");
     setPage(1);
   }, []);
 
   const handleClear = useCallback(() => {
     setSearch("");
     setActiveCat("");
+    setActiveCatUrl("");
     setPage(1);
   }, []);
 
-  const handleCategory = useCallback((name: string) => {
+  const handleCategory = useCallback((name: string, url?: string) => {
+    if (name === "" || name === activeCat) {
+      // Toggle off
+      setActiveCat("");
+      setActiveCatUrl("");
+      setSearch("");
+      setPage(1);
+      return;
+    }
     setActiveCat(name);
-    setSearch(name);
+    setActiveCatUrl(url || "");
+    setSearch("");
     setPage(1);
-  }, []);
+  }, [activeCat]);
 
   const handlePage = useCallback((p: number) => {
     setPage(p);
@@ -125,15 +139,23 @@ export default function HomePage() {
       ? "ขอหนัง"
       : nav === "imdb"
         ? "TOP IMDb"
-        : search || activeCat
-          ? `ผลค้นหา: "${search || activeCat}"${source.includes("live") ? " (สด)" : ""}`
-          : {
-              home: "หนังทั้งหมด",
-              online: "ดูหนังออนไลน์",
-              netflix: "ดูหนังNETFLIX",
-              thai: "ดูหนังไทย",
-              new: "ดูหนังใหม่ชนโรง",
-            }[nav] || "หนังทั้งหมด";
+        : activeCat
+          ? `หมวด: ${activeCat}${source.includes("live") ? " (สด)" : ""}`
+          : search
+            ? `ผลค้นหา: "${search}"${source.includes("live") ? " (สด)" : ""}`
+            : {
+                home: "หนังทั้งหมด",
+                online: "ดูหนังออนไลน์",
+                netflix: "ดูหนังNETFLIX",
+                thai: "ดูหนังไทย",
+                new: "ดูหนังใหม่ชนโรง",
+              }[nav] || "หนังทั้งหมด";
+
+  const sourceLabel =
+    source === "live-cat" || source === "live-cat-cache" ? "สด" :
+    source === "live-search" || source === "live-search-cache" ? "สด" :
+    source === "live" ? "สด" :
+    source === "cache" ? "แคช" : "";
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
@@ -146,6 +168,7 @@ export default function HomePage() {
                 setNav("home");
                 setSearch("");
                 setActiveCat("");
+                setActiveCatUrl("");
                 setPage(1);
               }}
             >
@@ -163,9 +186,9 @@ export default function HomePage() {
           </div>
           <div className="text-xs text-dim whitespace-nowrap text-right hidden sm:block">
             <span className="text-primary font-bold">{totalMovies.toLocaleString()}</span> เรื่อง
-            {source && (
+            {sourceLabel && (
               <span className="ml-1 px-1 py-0.5 rounded text-[10px] bg-primary/15 text-primary">
-                {source === "live" ? "สด" : source === "cache" ? "แคช" : ""}
+                {sourceLabel}
               </span>
             )}
           </div>

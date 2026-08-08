@@ -1,11 +1,12 @@
 "use client";
 
 import { memo, useRef, useCallback } from "react";
+import type { Category } from "@/lib/data";
 
 interface CategoryChipsProps {
-  categories: { name: string }[];
+  categories: Category[];
   active: string;
-  onSelect: (name: string) => void;
+  onSelect: (name: string, url?: string) => void;
 }
 
 export const CategoryChips = memo(function CategoryChips({
@@ -48,7 +49,7 @@ export const CategoryChips = memo(function CategoryChips({
         {categories.map((cat) => (
           <button
             key={cat.name}
-            onClick={() => onSelect(active === cat.name ? "" : cat.name)}
+            onClick={() => onSelect(active === cat.name ? "" : cat.name, cat.url)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer whitespace-nowrap ${
               active === cat.name
                 ? "bg-primary text-black border-primary"

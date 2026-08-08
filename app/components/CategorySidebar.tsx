@@ -1,11 +1,12 @@
 "use client";
 
 import { memo } from "react";
+import type { Category } from "@/lib/data";
 
 interface CategorySidebarProps {
-  categories: { name: string }[];
+  categories: Category[];
   active: string;
-  onSelect: (name: string) => void;
+  onSelect: (name: string, url?: string) => void;
 }
 
 export const CategorySidebar = memo(function CategorySidebar({
@@ -32,7 +33,7 @@ export const CategorySidebar = memo(function CategorySidebar({
         {categories.map((cat) => (
           <li key={cat.name}>
             <button
-              onClick={() => onSelect(active === cat.name ? "" : cat.name)}
+              onClick={() => onSelect(active === cat.name ? "" : cat.name, cat.url)}
               className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors cursor-pointer ${
                 active === cat.name ? "bg-primary text-black font-semibold" : "text-dim hover:text-text hover:bg-raised"
               }`}
