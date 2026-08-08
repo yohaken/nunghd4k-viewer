@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMovies, getCategories, getScrapedAt } from "@/lib/data";
+import { getMovies, getBaseCount, getDeltaCount, getCategories, getScrapedAt } from "@/lib/data";
 import { scheduleBackgroundRefresh, getRefreshStatus } from "@/lib/refresh";
 
 let timerScheduled = false;
@@ -12,6 +12,8 @@ export async function GET() {
 
   return NextResponse.json({
     totalMovies: getMovies().length,
+    baseMovies: getBaseCount(),
+    deltaMovies: getDeltaCount(),
     totalCategories: getCategories().length,
     scrapedAt: getScrapedAt(),
     refresh: getRefreshStatus(),

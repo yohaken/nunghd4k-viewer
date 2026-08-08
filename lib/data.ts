@@ -25,44 +25,96 @@ interface StaticData {
   totalPages: number;
 }
 
-let _movies: Movie[] | null = null;
-let _categories: Category[] | null = null;
-let _scrapedAt: string | null = null;
+const BASE_PATH = path.join(process.cwd(), "movies.json");
+const DELTA_PATH = path.join(process.cwd(), "movies-delta.json");
 
-function init() {
-  if (_movies) return;
-  const raw = fs.readFileSync(path.join(process.cwd(), "movies.json"), "utf8");
+let _baseMovies: Movie[] = [];
+let _deltaMovies: Movie[] = [];
+let _categories: Category[] = [];
+let _scrapedAt = "";
+
+function loadBase(): void {
+  if (!fs.existsSync(BASE_PATH)) return;
+  const raw = fs.readFileSync(BASE_PATH, "utf8");
   const data: StaticData = JSON.parse(raw);
-  _movies = data.movies;
+  _baseMovies = data.movies;
   _categories = data.categories;
   _scrapedAt = data.scrapedAt;
-  console.log(`[data] Loaded ${_movies.length} movies, ${_categories.length} categories`);
+}
+
+function loadDelta(): void {
+  if (!fs.existsSync(DELTA_PATH)) return;
+  try {
+    const raw = fs.readFileSync(DELTA_PATH, "utf8");
+    _deltaMovies = JSON.parse(raw);
+  } catch {
+    _deltaMovies = [];
+  }
+}
+
+function saveDelta(): void {
+  fs.writeFileSync(DELTA_PATH, JSON.stringify(_deltaMovies));
+}
+
+let _initialized = false;
+
+function init(): void {
+  if (_initialized) return;
+  _initialized = true;
+  loadBase();
+  loadDelta();
+  console.log(
+    `[data] Loaded ${_baseMovies.length} base + ${_deltaMovies.length} delta = ${_baseMovies.length + _deltaMovies.length} movies`
+  );
 }
 
 export function getMovies(): Movie[] {
   init();
-  return _movies!;
+  // Delta first (newest), then base
+  return [..._deltaMovies, ..._baseMovies];
+}
+
+export function getBaseCount(): number {
+  init();
+  return _baseMovies.length;
+}
+
+export function getDeltaCount(): number {
+  init();
+  return _deltaMovies.length;
 }
 
 export function getCategories(): Category[] {
   init();
-  return _categories!;
+  return _categories;
 }
 
 export function getScrapedAt(): string {
   init();
-  return _scrapedAt!;
+  return _scrapedAt;
 }
 
-/** Prepend new movies to the live cache (newest first) */
-export function addMovies(newMovies: Movie[]): void {
+export function getAllSlugs(): Set<string> {
   init();
-  const existingSlugs = new Set(_movies!.map((m) => m.slug));
-  const unique = newMovies.filter((m) => !existingSlugs.has(m.slug));
-  if (unique.length > 0) {
-    _movies!.unshift(...unique);
-    console.log(`[data] Merged ${unique.length} new movies, total now: ${_movies!.length}`);
-  }
+  const slugs = new Set<string>();
+  _baseMovies.forEach((m) => slugs.add(m.slug));
+  _deltaMovies.forEach((m) => slugs.add(m.slug));
+  return slugs;
+}
+
+/** Merge new movies into delta (prepend) and persist to disk immediately */
+export function addMovies(newMovies: Movie[]): number {
+  init();
+  const existing = getAllSlugs();
+  const unique = newMovies.filter((m) => !existing.has(m.slug));
+  if (unique.length === 0) return 0;
+
+  _deltaMovies.unshift(...unique);
+  saveDelta();
+  console.log(
+    `[data] Persisted ${unique.length} new movies → delta (base: ${_baseMovies.length}, delta: ${_deltaMovies.length})`
+  );
+  return unique.length;
 }
 
 export function findMovieBySlug(slug: string): Movie | undefined {

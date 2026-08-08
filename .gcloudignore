@@ -8,3 +8,4 @@ scraper.js
 check-videos.js
 check-results.json
 .dockerignore
+movies-delta.json

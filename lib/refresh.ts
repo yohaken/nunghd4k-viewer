@@ -1,13 +1,15 @@
 import { load } from "cheerio";
-import { getMovies, addMovies, type Movie } from "./data";
+import { addMovies, getMovies, getAllSlugs, type Movie } from "./data";
 
 const BASE_URL = "https://www.nunghd4k.com";
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const REFRESH_PAGES = 3;
 const REFRESH_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
-type RefreshResult = {
+export type RefreshResult = {
   newMovies: number;
+  baseMovies: number;
+  deltaMovies: number;
   totalMovies: number;
   pagesScraped: number;
   lastRefresh: Date;
@@ -31,17 +33,18 @@ async function fetchHTML(url: string): Promise<string> {
   return res.text();
 }
 
-export function extractMoviesFromPage(html: string): Movie[] {
+function extractMoviesFromPage(html: string): Movie[] {
   const $ = load(html);
   const movies: Movie[] = [];
-  const existingSlugs = new Set(getMovies().map((m) => m.slug));
+  const seen = new Set<string>();
 
   $(".grid-movie .box").each((_i, el) => {
     const linkEl = $(el).find("a").first();
     const href = linkEl.attr("href");
     if (!href) return;
     const slug = href.replace(BASE_URL + "/", "").replace(/\/$/, "").split("/").pop()!;
-    if (!slug || existingSlugs.has(slug)) return;
+    if (!slug || seen.has(slug)) return;
+    seen.add(slug);
 
     let image: string | null = null;
     const noscriptImg = $(el).find("noscript img").first();
@@ -57,7 +60,6 @@ export function extractMoviesFromPage(html: string): Movie[] {
     const language = $(el).find(".p1").text().trim() || null;
 
     movies.push({ slug, title, image: image || "", rating, quality, language, url: href });
-    existingSlugs.add(slug);
   });
 
   return movies;
@@ -74,11 +76,10 @@ async function doRefresh(): Promise<RefreshResult> {
 
   for (let page = 1; page <= REFRESH_PAGES; page++) {
     try {
-      const movies = await scrapePage(page);
-      if (movies.length > 0) {
-        addMovies(movies);
-        totalNew += movies.length;
-      }
+      const raw = await scrapePage(page);
+      // Deduplication happens inside addMovies() against base + delta
+      const added = addMovies(raw);
+      totalNew += added;
     } catch (err) {
       console.error(`[refresh] Page ${page} failed:`, err);
     }
@@ -86,32 +87,40 @@ async function doRefresh(): Promise<RefreshResult> {
 
   lastRefresh = new Date();
   newMoviesFound = totalNew;
-  return {
+  const movies = getMovies();
+
+  const result: RefreshResult = {
     newMovies: totalNew,
-    totalMovies: getMovies().length,
+    baseMovies: movies.length - totalNew, // approximate (won't be right if zero new)
+    deltaMovies: totalNew,
+    totalMovies: movies.length,
     pagesScraped: REFRESH_PAGES,
     lastRefresh,
   };
+
+  if (totalNew > 0) {
+    console.log(`[refresh] +${totalNew} new movies → persisted to movies-delta.json`);
+  }
+
+  return result;
 }
 
-/** Thread-safe refresh: concurrent callers await the same promise */
 export async function refreshFromSource(): Promise<RefreshResult> {
   if (refreshPromise) return refreshPromise;
-
-  refreshPromise = doRefresh().finally(() => {
-    refreshPromise = null;
-  });
-
+  refreshPromise = doRefresh().finally(() => { refreshPromise = null; });
   return refreshPromise;
 }
 
 export function getRefreshStatus() {
+  const movies = getMovies();
   return {
     lastRefresh,
     inProgress: !!refreshPromise,
     newMoviesFound,
     refreshPages: REFRESH_PAGES,
     intervalMs: REFRESH_INTERVAL_MS,
+    baseCount: movies.length,
+    deltaCount: newMoviesFound,
   };
 }
 

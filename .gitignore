@@ -5,6 +5,7 @@ node_modules/
 .env*
 AGENTS.md
 CLAUDE.md
+movies-delta.json
 check-real-streams.js
 check-videos.js
 check-results.json
