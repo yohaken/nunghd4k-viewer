@@ -5,3 +5,6 @@ node_modules/
 .env*
 AGENTS.md
 CLAUDE.md
+check-real-streams.js
+check-videos.js
+check-results.json
