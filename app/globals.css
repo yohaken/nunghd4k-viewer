@@ -50,6 +50,15 @@ h1, h2, h3, h4, .font-heading {
   to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.2s ease-out;
+}
+
 /* Bottom safe area for mobile */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

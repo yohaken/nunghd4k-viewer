@@ -4,16 +4,24 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import type { Movie, Category } from "@/lib/data";
+import type { FilterItem, FilterSelection } from "@/lib/filters";
+import { FILTER_GROUPS } from "@/lib/filters";
 import { TopNav } from "./components/TopNav";
 import { BottomNav } from "./components/BottomNav";
 import { SearchBar } from "./components/SearchBar";
 import { MovieGrid } from "./components/MovieGrid";
-import { CategorySidebar } from "./components/CategorySidebar";
+import { FilterPanel } from "./components/FilterPanel";
 import { CategoryChips } from "./components/CategoryChips";
 import { VideoModal } from "./components/VideoModal";
 import { Pagination } from "./components/Pagination";
 
 const LIMIT = 32;
+
+/** Map top-level nav modes to filter panel highlights */
+const MODE_TO_FILTER: Record<string, FilterSelection> = {
+  netflix: { groupId: "platform", itemKey: "netflix" },
+  thai: { groupId: "country", itemKey: "thai" },
+};
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -28,6 +36,8 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCat, setActiveCat] = useState("");
   const [activeCatUrl, setActiveCatUrl] = useState("");
+  const [filter, setFilter] = useState<FilterSelection | null>(null);
+  const [showFilterMobile, setShowFilterMobile] = useState(false);
   const [modalMovie, setModalMovie] = useState<Movie | null>(null);
   const [totalMovies, setTotalMovies] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("");
@@ -66,7 +76,6 @@ export default function HomePage() {
     params.set("limit", String(LIMIT));
     params.set("page", String(page));
 
-    // Category filter: live fetch from WP category endpoint (uses category URL)
     if (activeCatUrl) {
       params.set("cat", activeCatUrl);
     } else if (search) {
@@ -98,17 +107,75 @@ export default function HomePage() {
     loadMovies();
   }, [loadMovies]);
 
+  // Compute which filter is active from current state (for highlight)
+  const activeFilter: FilterSelection | null = filter;
+
+  const handleFilter = useCallback((item: FilterItem | null) => {
+    if (item === null) {
+      // Clear all filters
+      setFilter(null);
+      setActiveCat("");
+      setActiveCatUrl("");
+      setSearch("");
+      setNav("home");
+      setPage(1);
+      setShowFilterMobile(false);
+      return;
+    }
+
+    // Check if toggling off the same filter
+    if (filter?.groupId === findGroupForItem(item.key) && filter?.itemKey === item.key) {
+      setFilter(null);
+      setActiveCat("");
+      setActiveCatUrl("");
+      setSearch("");
+      setNav("home");
+      setPage(1);
+      setShowFilterMobile(false);
+      return;
+    }
+
+    const groupId = findGroupForItem(item.key);
+    const newFilter: FilterSelection = { groupId, itemKey: item.key };
+    setFilter(newFilter);
+
+    switch (item.type) {
+      case "cat":
+        setActiveCat(item.label);
+        setActiveCatUrl(item.value);
+        setSearch("");
+        break;
+      case "search":
+        setActiveCat("");
+        setActiveCatUrl("");
+        setSearch(item.value);
+        break;
+      case "mode":
+        setActiveCat("");
+        setActiveCatUrl("");
+        setSearch("");
+        setNav(item.value);
+        break;
+    }
+    setPage(1);
+    setShowFilterMobile(false);
+  }, [filter]);
+
   const handleNav = useCallback((key: string) => {
     setNav(key);
     setSearch("");
     setActiveCat("");
     setActiveCatUrl("");
     setPage(1);
+    // Sync filter highlight for modes that have a matching filter
+    const fs = MODE_TO_FILTER[key] || null;
+    setFilter(fs);
   }, []);
 
   const handleSearch = useCallback(() => {
     setActiveCat("");
     setActiveCatUrl("");
+    setFilter(null);
     setPage(1);
   }, []);
 
@@ -116,21 +183,23 @@ export default function HomePage() {
     setSearch("");
     setActiveCat("");
     setActiveCatUrl("");
+    setFilter(null);
     setPage(1);
   }, []);
 
   const handleCategory = useCallback((name: string, url?: string) => {
     if (name === "" || name === activeCat) {
-      // Toggle off
       setActiveCat("");
       setActiveCatUrl("");
       setSearch("");
+      setFilter(null);
       setPage(1);
       return;
     }
     setActiveCat(name);
     setActiveCatUrl(url || "");
     setSearch("");
+    setFilter(null);
     setPage(1);
   }, [activeCat]);
 
@@ -174,6 +243,7 @@ export default function HomePage() {
                 setSearch("");
                 setActiveCat("");
                 setActiveCatUrl("");
+                setFilter(null);
                 setPage(1);
               }}
             >
@@ -190,6 +260,27 @@ export default function HomePage() {
             />
           </div>
           <div className="flex items-center gap-3">
+            {/* Mobile filter button */}
+            <button
+              onClick={() => setShowFilterMobile(true)}
+              className="lg:hidden text-dim hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
+              aria-label="ตัวกรอง"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="3" y1="5" x2="17" y2="5" />
+                <line x1="8" y1="10" x2="17" y2="10" />
+                <line x1="12" y1="15" x2="17" y2="15" />
+                <circle cx="6" cy="5" r="1.5" />
+                <circle cx="6" cy="10" r="1.5" />
+                <circle cx="10" cy="15" r="1.5" />
+              </svg>
+              {filter && (
+                <span className="text-[10px] bg-primary text-black px-1.5 py-0.5 rounded-full font-bold">
+                  1
+                </span>
+              )}
+            </button>
+
             <div className="text-xs text-dim whitespace-nowrap text-right hidden sm:block">
               <span className="text-primary font-bold">{totalMovies.toLocaleString()}</span> เรื่อง
               {sourceLabel && (
@@ -286,11 +377,21 @@ export default function HomePage() {
 
       <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-[1500px] mx-auto flex gap-5 p-4 md:p-6">
-          <CategorySidebar
-            categories={categories}
-            active={activeCat}
-            onSelect={handleCategory}
+          {/* Desktop: FilterPanel as sidebar */}
+          <FilterPanel
+            active={activeFilter}
+            onSelect={handleFilter}
           />
+
+          {/* Mobile: overlay FilterPanel */}
+          {showFilterMobile && (
+            <FilterPanel
+              active={activeFilter}
+              onSelect={handleFilter}
+              mobile
+              onClose={() => setShowFilterMobile(false)}
+            />
+          )}
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -338,4 +439,14 @@ export default function HomePage() {
       <VideoModal movie={modalMovie} onClose={() => setModalMovie(null)} />
     </div>
   );
+}
+
+/** Find which group a filter item key belongs to */
+function findGroupForItem(key: string): string {
+  for (const g of FILTER_GROUPS) {
+    for (const item of g.items) {
+      if (item.key === key) return g.id;
+    }
+  }
+  return "genre";
 }
