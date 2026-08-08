@@ -4,18 +4,7 @@ import { isAllowed } from "@/lib/allowed-emails";
 import "@/lib/firebase-admin";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
-  secret: process.env.AUTH_SECRET,
-  trustHost: true,
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
+  providers: [Google],
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
