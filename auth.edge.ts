@@ -6,9 +6,9 @@ export const { auth, handlers } = NextAuth({
     Credentials({
       name: "firebase",
       credentials: { idToken: { label: "Firebase ID Token", type: "text" } },
-      // Minimal stub — real verification happens in auth.ts via server route
     }),
   ],
+  secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/login", error: "/login" },
   trustHost: true,
@@ -26,11 +26,7 @@ export const { auth, handlers } = NextAuth({
         return true;
       }
 
-      if (!isLoggedIn) {
-        return false; // redirect to signIn page
-      }
-
-      return true;
+      return isLoggedIn;
     },
   },
 });
