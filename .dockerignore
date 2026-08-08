@@ -1,8 +1,10 @@
 node_modules/
 .git/
+.gitignore
 .DS_Store
 *.log
+.next/
+.env*
+check-videos.js
+check-results.json
 scraper.js
-terminals/
-agent-transcripts/
-agent-tools/

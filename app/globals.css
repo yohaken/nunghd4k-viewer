@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-surface: #141414;
+  --color-raised: #1c1c1c;
+  --color-border: #2a2a2a;
+  --color-primary: #66cc00;
+  --color-primary-dim: #4da000;
+  --color-text: #e0e0e0;
+  --color-dim: #888;
+  --color-danger: #e74c3c;
+
+  --font-heading: "Poppins", sans-serif;
+  --font-body: "Sarabun", sans-serif;
+
+  --radius-card: 12px;
+  --radius-btn: 8px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: var(--font-heading);
+}
+
+::selection {
+  background: var(--color-primary);
+  color: #000;
+}
+
+/* Keyframes for modal animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Bottom safe area for mobile */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Scrollbar hide utility */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
