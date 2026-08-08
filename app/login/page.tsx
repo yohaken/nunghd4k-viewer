@@ -1,45 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { signInWithPopup } from "firebase/auth";
+import {
+  signInWithRedirect,
+  getRedirectResult,
+  type User,
+} from "firebase/auth";
 import { auth as firebaseAuth, googleProvider } from "@/lib/firebase-client";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Handle redirect result on page load
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const result = await getRedirectResult(firebaseAuth);
+        if (!result || cancelled) return;
+
+        const user: User = result.user;
+        const idToken = await user.getIdToken();
+
+        const res = await signIn("credentials", {
+          idToken,
+          redirect: false,
+        });
+
+        if (cancelled) return;
+
+        if (res?.error) {
+          setError(
+            res.error === "AccessDenied"
+              ? "อีเมลนี้ไม่ได้รับอนุญาตให้เข้าใช้งาน"
+              : "เกิดข้อผิดพลาดในการยืนยันตัวตน กรุณาลองใหม่"
+          );
+        } else if (res?.ok) {
+          window.location.href = "/";
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setError("เกิดข้อผิดพลาด: " + (e?.message || "กรุณาลองใหม่"));
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
   const handleSignIn = async () => {
     setLoading(true);
     setError("");
     try {
-      const result = await signInWithPopup(firebaseAuth, googleProvider);
-      const idToken = await result.user.getIdToken();
-
-      const res = await signIn("credentials", {
-        idToken,
-        redirect: false,
-      });
-
-      if (res?.error) {
-        setError(
-          res.error === "AccessDenied"
-            ? "อีเมลนี้ไม่ได้รับอนุญาตให้เข้าใช้งาน"
-            : "เกิดข้อผิดพลาดในการยืนยันตัวตน กรุณาลองใหม่"
-        );
-      } else if (res?.ok) {
-        window.location.href = "/";
-      }
+      await signInWithRedirect(firebaseAuth, googleProvider);
     } catch (e: any) {
-      if (e?.code === "auth/popup-closed-by-user") {
-        setError("ยกเลิกการเข้าสู่ระบบ");
-      } else if (e?.code === "auth/cancelled-popup-request") {
-        // ignore — user retried
-      } else {
-        setError("เกิดข้อผิดพลาด: " + (e?.message || "กรุณาลองใหม่"));
-      }
-    } finally {
       setLoading(false);
+      setError("เกิดข้อผิดพลาด: " + (e?.message || "กรุณาลองใหม่"));
     }
   };
 
@@ -97,7 +116,7 @@ export default function LoginPage() {
                 fill="#EA4335"
               />
             </svg>
-            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย Google"}
+            {loading ? "กำลังเปลี่ยนหน้า..." : "เข้าสู่ระบบด้วย Google"}
           </button>
         </div>
 
