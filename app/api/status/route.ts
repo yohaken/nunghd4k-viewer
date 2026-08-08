@@ -19,12 +19,5 @@ export async function GET() {
     refresh: getRefreshStatus(),
     version: process.env.BUILD_VERSION || "—",
     buildTime: process.env.BUILD_TIME || null,
-    debug: {
-      nodeEnv: process.env.NODE_ENV,
-      authUrl: process.env.AUTH_URL || "(not set)",
-      authSecret: process.env.AUTH_SECRET ? "present" : "MISSING",
-      authGoogleId: process.env.AUTH_GOOGLE_ID ? "present" : "MISSING",
-      authGoogleSecret: process.env.AUTH_GOOGLE_SECRET ? "present" : "MISSING",
-    },
   });
 }

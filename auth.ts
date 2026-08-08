@@ -1,28 +1,34 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import Email from "next-auth/providers/email";
 import { isAllowed } from "@/lib/allowed-emails";
 import "@/lib/firebase-admin";
 
-// Lazy config: reads env vars at runtime, not build time
-export const { handlers, auth, signIn, signOut } = NextAuth(() => {
-  return {
-    providers: [
-      Google({
-        clientId: process.env.AUTH_GOOGLE_ID,
-        clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      }),
-    ],
-    secret: process.env.AUTH_SECRET,
-    trustHost: true,
-    pages: {
-      signIn: "/login",
-      error: "/login",
-    },
-    callbacks: {
-      async signIn({ user }) {
-        if (!user.email) return false;
-        return isAllowed(user.email);
+export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
+  providers: [
+    Email({
+      server: {
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: "yohaken@gmail.com",
+          pass: process.env.EMAIL_PASSWORD,
+        },
       },
+      from: "NUNGHD4K <yohaken@gmail.com>",
+    }),
+  ],
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
+  pages: {
+    signIn: "/login",
+    error: "/login",
+    verifyRequest: "/login/verify",
+  },
+  callbacks: {
+    async signIn({ user }) {
+      if (!user.email) return false;
+      return isAllowed(user.email);
     },
-  };
-});
+  },
+}));
