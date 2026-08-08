@@ -259,11 +259,11 @@ export default function HomePage() {
               onClear={handleClear}
             />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0 min-w-0">
             {/* Mobile filter button */}
             <button
               onClick={() => setShowFilterMobile(true)}
-              className="lg:hidden text-dim hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
+              className="lg:hidden relative text-dim hover:text-primary transition-colors cursor-pointer shrink-0"
               aria-label="ตัวกรอง"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -275,7 +275,7 @@ export default function HomePage() {
                 <circle cx="10" cy="15" r="1.5" />
               </svg>
               {filter && (
-                <span className="text-[10px] bg-primary text-black px-1.5 py-0.5 rounded-full font-bold">
+                <span className="absolute -top-1 -right-1 text-[10px] bg-primary text-black w-4 h-4 rounded-full font-bold flex items-center justify-center">
                   1
                 </span>
               )}
@@ -375,8 +375,8 @@ export default function HomePage() {
         onSelect={handleCategory}
       />
 
-      <main className="flex-1 pb-20 md:pb-0">
-        <div className="max-w-[1500px] mx-auto flex gap-5 p-4 md:p-6">
+      <main className="flex-1 pb-20 md:pb-0 overflow-x-hidden">
+        <div className="max-w-[1500px] mx-auto flex gap-5 p-4 md:p-6 overflow-x-hidden">
           {/* Desktop: FilterPanel as sidebar */}
           <FilterPanel
             active={activeFilter}

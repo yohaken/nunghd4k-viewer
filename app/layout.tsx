@@ -24,8 +24,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={`${poppins.variable} ${sarabun.variable}`}>
-      <body className="min-h-screen antialiased">
+    <html lang="th" className={`${poppins.variable} ${sarabun.variable} overflow-x-hidden`}>
+      <body className="min-h-screen antialiased overflow-x-hidden">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
