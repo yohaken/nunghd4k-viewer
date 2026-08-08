@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NUNGHD4K Viewer</title>
+  <style>
+    :root { --bg:#0a0a0a; --surface:#141414; --hover:#1e1e1e; --border:#2a2a2a; --primary:#66CC00; --primary-dark:#4da000; --text:#e0e0e0; --dim:#888; --danger:#e74c3c; --radius:8px; --radius-lg:12px; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .header{background:var(--surface);border-bottom:2px solid var(--primary);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:100}
+    .header-brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:800;color:var(--primary);cursor:pointer;white-space:nowrap}
+    .header-brand span{color:var(--dim);font-weight:400;font-size:13px}
+    .search-wrap{flex:1;max-width:420px;position:relative}
+    .search-box{display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .search-box:focus-within{border-color:var(--primary)}
+    .search-box input{flex:1;padding:10px 14px;background:none;border:none;color:var(--text);font-size:14px;outline:none;min-width:0}
+    .search-box input::placeholder{color:var(--dim)}
+    .search-box button{padding:10px 16px;background:var(--primary);border:none;color:#000;font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap;transition:background .2s}
+    .search-box button:hover{background:var(--primary-dark)}
+    .clear-btn{position:absolute;right:60px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;padding:4px 8px;display:none}
+    .clear-btn:hover{color:var(--text)}
+    .header-info{font-size:12px;color:var(--dim);white-space:nowrap;text-align:right}
+    .header-info .count{color:var(--primary);font-weight:700}
+    .top-nav{background:var(--primary);padding:0 24px;display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .top-nav::-webkit-scrollbar{display:none}
+    .top-nav a{padding:10px 18px;color:#000;text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap;transition:background .15s;border-bottom:3px solid transparent;cursor:pointer}
+    .top-nav a:hover{background:rgba(0,0,0,.08)}
+    .top-nav a.active{border-bottom-color:#000;background:rgba(0,0,0,.06)}
+    .layout{display:flex;max-width:1500px;margin:0 auto;padding:16px;gap:20px}
+    .sidebar{width:220px;flex-shrink:0;position:sticky;top:110px;align-self:flex-start;max-height:calc(100vh - 126px);overflow-y:auto;background:var(--surface);border-radius:var(--radius-lg);padding:16px}
+    .sidebar h3{font-size:15px;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+    .sidebar ul{list-style:none;display:flex;flex-direction:column;gap:2px}
+    .sidebar ul li a{display:block;padding:8px 10px;color:var(--dim);text-decoration:none;border-radius:6px;font-size:13px;transition:all .15s;cursor:pointer}
+    .sidebar ul li a:hover,.sidebar ul li a.active{background:var(--primary);color:#000;font-weight:600}
+    .main{flex:1;min-width:0}
+    .section-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+    .section-title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+    .section-title::before{content:'';display:inline-block;width:4px;height:22px;background:var(--primary);border-radius:2px}
+    .result-count{color:var(--dim);font-size:13px}
+    .movie-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:14px}
+    .movie-card{background:var(--surface);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative}
+    .movie-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(102,204,0,.15)}
+    .poster{position:relative;aspect-ratio:2/3;overflow:hidden;background:var(--border)}
+    .poster img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+    .movie-card:hover .poster img{transform:scale(1.05)}
+    .play-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+    .movie-card:hover .play-overlay{opacity:1}
+    .play-btn{width:50px;height:50px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#000;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+    .badge-row{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none}
+    .badge{padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.3px}
+    .badge-quality{background:var(--primary);color:#000}
+    .badge-rating{background:rgba(0,0,0,.75);color:#FFD700;display:flex;align-items:center;gap:3px}
+    .badge-rating::before{content:'\2B50';font-size:10px}
+    .movie-card .info{padding:10px 12px}
+    .lang-badge{display:inline-block;font-size:10px;padding:2px 6px;background:rgba(102,204,0,.15);color:var(--primary);border-radius:3px;margin-bottom:6px}
+    .movie-card .title{font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text)}
+    .loading{display:flex;align-items:center;justify-content:center;padding:60px 20px;flex-direction:column;gap:12px;grid-column:1/-1}
+    .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{color:var(--dim);font-size:14px}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--dim);grid-column:1/-1}
+    .empty-state .icon{font-size:48px;margin-bottom:12px}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .2s}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .modal{background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:960px;max-height:95vh;overflow:hidden;display:flex;flex-direction:column;animation:slideUp .25s}
+    @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);gap:12px}
+    .modal-header h3{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+    .modal-close{width:32px;height:32px;border-radius:50%;background:none;border:1px solid var(--border);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:all .2s}
+    .modal-close:hover{background:var(--danger);border-color:var(--danger)}
+    .video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+    .video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+    .video-wrap .no-video{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:15px;flex-direction:column;gap:8px}
+    .modal-footer{padding:10px 20px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)}
+    .server-btn{padding:7px 14px;border:1px solid var(--border);background:var(--hover);color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;transition:all .2s}
+    .server-btn:hover{background:var(--primary);color:#000;border-color:var(--primary)}
+    .server-btn.active{background:var(--primary);color:#000;border-color:var(--primary);font-weight:600}
+    .pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:24px;padding:16px 0}
+    .pagination button{padding:8px 18px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+    .pagination button:hover:not(:disabled){background:var(--primary);color:#000;border-color:var(--primary)}
+    .pagination button:disabled{opacity:.35;cursor:default}
+    .pagination .page-info{color:var(--dim);font-size:13px}
+    .toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;z-index:2000;animation:slideIn .3s;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:320px}
+    @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+    .toast.error{border-color:var(--danger)}
+    @media(max-width:768px){.layout{flex-direction:column;padding:10px}.sidebar{width:100%;position:static;max-height:none;display:flex;flex-wrap:wrap;gap:6px;padding:12px}.sidebar h3{width:100%;margin-bottom:4px}.sidebar ul{flex-direction:row;flex-wrap:wrap;gap:4px}.sidebar ul li a{font-size:11px;padding:6px 10px}.movie-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.header{padding:10px 14px;flex-wrap:wrap}.header-brand{font-size:18px}.search-wrap{max-width:none;flex-basis:100%;order:10}.header-info{order:5}.top-nav a{padding:8px 12px;font-size:13px}.modal{margin:8px;max-height:98vh}.modal-header h3{font-size:14px}}
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand" onclick="resetAll()">NUNGHD4K <span>Viewer</span></div>
+    <div class="search-wrap">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="ค้นหาหนัง..." autocomplete="off">
+        <button class="clear-btn" id="clearBtn" onclick="clearSearch()">&times;</button>
+        <button onclick="doSearch()">ค้นหา</button>
+      </div>
+    </div>
+    <div class="header-info" id="headerInfo"></div>
+  </header>
+
+  <nav class="top-nav">
+    <a class="active" data-nav="home" onclick="navTo('home',this)">หน้าแรก</a>
+    <a data-nav="online" onclick="navTo('online',this)">ดูหนังออนไลน์</a>
+    <a data-nav="netflix" onclick="navTo('netflix',this)">ดูหนังNETFLIX</a>
+    <a data-nav="thai" onclick="navTo('thai',this)">ดูหนังไทย</a>
+    <a data-nav="new" onclick="navTo('new',this)">ดูหนังใหม่ชนโรง</a>
+    <a data-nav="imdb" onclick="navTo('imdb',this)">TOP IMDb</a>
+    <a data-nav="request" onclick="navTo('request',this)">ขอหนัง</a>
+  </nav>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>หมวดหมู่</h3>
+      <ul id="categoryList"><li><a class="active" data-cat="">ทั้งหมด</a></li></ul>
+    </aside>
+    <main class="main">
+      <div class="section-bar">
+        <div class="section-title" id="sectionTitle">หนังทั้งหมด</div>
+        <div class="result-count" id="resultCount"></div>
+      </div>
+      <div class="movie-grid" id="movieGrid"><div class="loading"><div class="spinner"></div><span class="loading-text">กำลังโหลด...</span></div></div>
+      <div class="pagination" id="pagination"></div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header"><h3 id="modalTitle"></h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="video-wrap" id="videoWrap"><div class="no-video">กำลังโหลดวิดีโอ...</div></div>
+      <div class="modal-footer" id="modalServers"></div>
+    </div>
+  </div>
+  <div id="toastContainer"></div>
+
+  <script>
+    const LIMIT=48;
+    let cur={search:'',page:1,nav:'home',total:0};
+    const NAV={home:'',online:'หนัง',netflix:'netflix',thai:'หนังไทย',new:'ใหม่',imdb:'__sort__',request:'__req__'};
+
+    function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+    function fmt(iso){if(!iso)return'-';const s=(Date.now()-new Date(iso))/1e3;return s<60?'เมื่อสักครู่':s<3600?Math.floor(s/60)+'นาทีก่อน':new Date(iso).toLocaleString('th-TH')}
+
+    async function init(){
+      document.getElementById('searchInput').addEventListener('input',debounce(onInput,350));
+      await Promise.all([loadCats(),load()]);
+      setInterval(updateStatus,15000);
+    }
+
+    async function loadCats(){
+      try{
+        const r=await fetch('/api/categories'),cats=await r.json();
+        const ul=document.getElementById('categoryList');
+        ul.innerHTML='<li><a class="active" data-cat="">ทั้งหมด</a></li>';
+        cats.forEach(c=>{const li=document.createElement('li'),a=document.createElement('a');a.textContent=c.name;a.dataset.cat=c.name;a.addEventListener('click',()=>selCat(c.name,a));li.appendChild(a);ul.appendChild(li)})
+      }catch(e){}
+    }
+
+    function selCat(name,el){
+      cur.search=''; document.getElementById('searchInput').value=''; document.getElementById('clearBtn').style.display='none'; cur.page=1;
+      document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active')); if(el)el.classList.add('active');
+      document.getElementById('sectionTitle').textContent=name||'หนังทั้งหมด'; load();
+    }
+
+    async function load(){
+      const g=document.getElementById('movieGrid');
+      g.innerHTML='<div class="loading"><div class="spinner"></div><span class="loading-text">กำลังโหลด...</span></div>';
+      if(cur.nav==='imdb'){loadSorted();return}
+      if(cur.nav==='request'){showRequest();return}
+      const p=new URLSearchParams();p.set('limit',LIMIT);p.set('page',cur.page);if(cur.search)p.set('search',cur.search);
+      try{
+        const r=await fetch('/api/movies?'+p),d=await r.json();
+        cur.total=d.total; render(d.movies); paginate();
+        document.getElementById('resultCount').textContent=d.total+' เรื่อง';
+      }catch(e){g.innerHTML='<div class="empty-state"><div class="icon">!</div><p>โหลดไม่สำเร็จ</p></div>'}
+    }
+
+    async function loadSorted(){
+      const g=document.getElementById('movieGrid');
+      try{
+        const r=await fetch('/api/movies?limit=9999'),d=await r.json();
+        let m=d.movies.filter(x=>x.rating&&!isNaN(parseFloat(x.rating))); m.sort((a,b)=>parseFloat(b.rating)-parseFloat(a.rating));
+        cur.total=m.length; const s=(cur.page-1)*LIMIT; render(m.slice(s,s+LIMIT)); paginate();
+        document.getElementById('resultCount').textContent=cur.total+' เรื่อง (เรียงคะแนน)';
+      }catch(e){g.innerHTML='<div class="empty-state"><div class="icon">!</div><p>โหลดไม่สำเร็จ</p></div>'}
+    }
+
+    function showRequest(){
+      document.getElementById('sectionTitle').textContent='ขอหนัง';
+      document.getElementById('movieGrid').innerHTML='<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">&#x1F4E9;</div><p>ติดต่อขอหนังผ่านเว็บหลัก</p><a href="https://www.nunghd4k.com/%E0%B8%95%E0%B8%B4%E0%B8%94%E0%B8%95%E0%B9%88%E0%B8%AD%E0%B9%80%E0%B8%A3%E0%B8%B2" target="_blank" style="color:var(--primary);margin-top:8px;display:inline-block">ไปหน้าติดต่อเรา &rarr;</a></div>';
+      document.getElementById('pagination').innerHTML=''; document.getElementById('resultCount').textContent='';
+    }
+
+    function render(movies){
+      const g=document.getElementById('movieGrid');
+      if(!movies.length){g.innerHTML='<div class="empty-state"><div class="icon">&#x1F50D;</div><p>ไม่พบ</p></div>';return}
+      g.innerHTML=movies.map(m=>`
+        <div class="movie-card" onclick="openMovie('${esc(m.slug)}','${esc(m.title)}')" title="${esc(m.title)}">
+          <div class="poster">
+            <img src="${m.image||''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22350%22 height=%22465%22><rect fill=%22%23222%22 width=%22350%22 height=%22465%22/><text x=%22175%22 y=%22232%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>No Image</text></svg>'">
+            <div class="play-overlay"><div class="play-btn">&#x25B6;</div></div>
+            <div class="badge-row">
+              ${m.quality?`<span class="badge badge-quality">${esc(m.quality)}</span>`:'<span></span>'}
+              ${m.rating?`<span class="badge badge-rating">${esc(m.rating)}</span>`:'<span></span>'}
+            </div>
+          </div>
+          <div class="info">${m.language?`<span class="lang-badge">${esc(m.language)}</span>`:''}<div class="title">${esc(m.title)}</div></div>
+        </div>`).join('');
+    }
+
+    function paginate(){
+      const tp=Math.ceil(cur.total/LIMIT),c=document.getElementById('pagination');
+      if(tp<=1){c.innerHTML='';return}
+      c.innerHTML=`<button ${cur.page<=1?'disabled':''} onclick="go(${cur.page-1})">&#x2039; ก่อนหน้า</button><span class="page-info">หน้า ${cur.page} / ${tp} — ${cur.total} เรื่อง</span><button ${cur.page>=tp?'disabled':''} onclick="go(${cur.page+1})">ถัดไป &#x203A;</button>`;
+    }
+    function go(p){cur.page=p;load();window.scrollTo({top:0,behavior:'smooth'})}
+
+    function navTo(nav,el){
+      cur.nav=nav; cur.search=''; cur.page=1;
+      document.getElementById('searchInput').value=''; document.getElementById('clearBtn').style.display='none';
+      document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active')); if(el)el.classList.add('active');
+      document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));
+      document.querySelector('#categoryList a:first-child')?.classList.add('active');
+      document.getElementById('sectionTitle').textContent=el?el.textContent:'หนังทั้งหมด';
+      if(NAV[nav]&&nav!=='imdb'&&nav!=='request'){cur.search=NAV[nav];document.getElementById('sectionTitle').textContent=el.textContent}
+      load();
+    }
+
+    function onInput(){
+      const v=document.getElementById('searchInput').value.trim();
+      document.getElementById('clearBtn').style.display=v?'block':'none';
+      document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));
+      document.querySelector('#categoryList a:first-child')?.classList.add('active');
+      document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active'));
+      cur.search=v; cur.page=1; cur.nav='home';
+      document.getElementById('sectionTitle').textContent=v?`ผลค้นหา: "${v}"`:'หนังทั้งหมด';
+      load();
+    }
+    function doSearch(){document.getElementById('searchInput').dispatchEvent(new Event('input'))}
+    function clearSearch(){cur.search='';cur.page=1;document.getElementById('searchInput').value='';document.getElementById('clearBtn').style.display='none';document.getElementById('sectionTitle').textContent='หนังทั้งหมด';load()}
+    function resetAll(){cur.search='';cur.page=1;cur.nav='home';document.getElementById('searchInput').value='';document.getElementById('clearBtn').style.display='none';document.getElementById('sectionTitle').textContent='หนังทั้งหมด';document.querySelectorAll('#topNav a').forEach(a=>a.classList.remove('active'));document.querySelector('#topNav a:first-child')?.classList.add('active');document.querySelectorAll('#categoryList a').forEach(a=>a.classList.remove('active'));document.querySelector('#categoryList a:first-child')?.classList.add('active');load()}
+
+    async function openMovie(slug,title){
+      document.getElementById('modalTitle').textContent=title;
+      document.getElementById('videoWrap').innerHTML='<div class="no-video"><div class="spinner"></div>กำลังโหลดวิดีโอ...</div>';
+      document.getElementById('modalServers').innerHTML='';
+      document.getElementById('modalOverlay').style.display='flex'; document.body.style.overflow='hidden';
+      try{
+        const r=await fetch('/api/movie/'+encodeURIComponent(slug)),m=await r.json();
+        document.getElementById('modalTitle').textContent=m.title||title;
+        const sv=[];
+        if(m.hlsEmbedUrl)sv.push({label:'HLS หลัก',url:m.hlsEmbedUrl});
+        if(m.youtubeUrl)sv.push({label:'YouTube',url:m.youtubeUrl});
+        m.playerUrls?.forEach((u,i)=>{sv.push({label:u.includes('vid.php')?'ตัวเล่นเว็บ':`สำรอง ${i+1}`,url:u})});
+        if(!sv.length){document.getElementById('videoWrap').innerHTML='<div class="no-video">&#x1F615; ไม่พบลิงก์วิดีโอ</div>';return}
+        document.getElementById('videoWrap').innerHTML=`<iframe src="${esc(sv[0].url)}" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
+        if(sv.length>1)document.getElementById('modalServers').innerHTML=sv.map((s,i)=>`<button class="server-btn${i===0?' active':''}" onclick="switchSvr('${esc(s.url)}',this)">${s.label}</button>`).join('');
+      }catch(e){document.getElementById('videoWrap').innerHTML='<div class="no-video">&#x26A0; โหลดไม่สำเร็จ</div>'}
+    }
+    function switchSvr(url,b){
+      document.getElementById('videoWrap').innerHTML=`<iframe src="${esc(url)}" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
+      document.querySelectorAll('#modalServers .server-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+    }
+    function closeModal(){document.getElementById('modalOverlay').style.display='none';document.body.style.overflow='';document.getElementById('videoWrap').innerHTML=''}
+
+    async function updateStatus(){
+      try{const r=await fetch('/api/status'),s=await r.json();document.getElementById('headerInfo').innerHTML=`<span class="count">${s.totalMovies}</span> เรื่อง &middot; ${fmt(s.scrapedAt)}`}catch(e){}
+    }
+
+    function debounce(fn,ms){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>fn.apply(this,a),ms)}}
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+    init();
+  </script>
+</body>
+</html>
