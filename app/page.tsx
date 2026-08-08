@@ -7,6 +7,7 @@ import { BottomNav } from "./components/BottomNav";
 import { SearchBar } from "./components/SearchBar";
 import { MovieGrid } from "./components/MovieGrid";
 import { CategorySidebar } from "./components/CategorySidebar";
+import { CategoryChips } from "./components/CategoryChips";
 import { VideoModal } from "./components/VideoModal";
 import { Pagination } from "./components/Pagination";
 
@@ -125,7 +126,7 @@ export default function HomePage() {
       : nav === "imdb"
         ? "TOP IMDb"
         : search || activeCat
-          ? `ผลค้นหา: "${search || activeCat}"`
+          ? `ผลค้นหา: "${search || activeCat}"${source.includes("live") ? " (สด)" : ""}`
           : {
               home: "หนังทั้งหมด",
               online: "ดูหนังออนไลน์",
@@ -172,6 +173,12 @@ export default function HomePage() {
       </header>
 
       <TopNav active={nav} onSelect={handleNav} />
+
+      <CategoryChips
+        categories={categories}
+        active={activeCat}
+        onSelect={handleCategory}
+      />
 
       <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-[1500px] mx-auto flex gap-5 p-4 md:p-6">

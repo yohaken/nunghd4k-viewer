@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchLivePage, searchMovies } from "@/lib/source";
+import { fetchLivePage, searchMovies, searchLiveFromSource } from "@/lib/source";
 import { getMovies } from "@/lib/data";
 
 export async function GET(req: NextRequest) {
@@ -9,17 +9,30 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "32", 10);
 
-  // Search: use movies.json + delta index (fast, full catalog)
+  // Search: try live search from nunghd4k.com first, fall back to internal index
   if (search) {
-    const results = searchMovies(search);
-    const total = results.length;
-    const start = (page - 1) * limit;
-    return NextResponse.json({
-      total,
-      page,
-      movies: results.slice(start, start + limit),
-      source: "index",
-    });
+    try {
+      const live = await searchLiveFromSource(search, page);
+      return NextResponse.json({
+        total: live.totalMovies,
+        page: live.page,
+        movies: live.movies,
+        source: live.source,
+        totalPages: live.totalPages,
+      });
+    } catch {
+      // Fallback to internal index
+      const results = searchMovies(search);
+      const total = results.length;
+      const start = (page - 1) * limit;
+      return NextResponse.json({
+        total,
+        page,
+        movies: results.slice(start, start + limit),
+        source: "index",
+        totalPages: Math.ceil(total / limit),
+      });
+    }
   }
 
   // TOP IMDb: sort base+delta by rating

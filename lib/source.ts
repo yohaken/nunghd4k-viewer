@@ -132,3 +132,50 @@ export function searchMovies(q: string): Movie[] {
     return t.includes(term) || s.includes(term);
   });
 }
+
+// --- Live search from nunghd4k.com ---
+
+const SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 min for search results
+const searchCache = new Map<string, { movies: Movie[]; totalPages: number; fetchedAt: number }>();
+
+function buildSearchUrl(query: string, page: number): string {
+  const encoded = encodeURIComponent(query);
+  return page <= 1
+    ? BASE_URL + "/search_movie/?keyword=" + encoded
+    : BASE_URL + "/search_movie/page/" + page + "/?keyword=" + encoded;
+}
+
+export interface LiveSearchResult {
+  movies: Movie[];
+  page: number;
+  totalPages: number;
+  totalMovies: number;
+  source: "live-search" | "live-search-cache";
+}
+
+export async function searchLiveFromSource(query: string, page: number): Promise<LiveSearchResult> {
+  const cacheKey = `${query}::${page}`;
+  const cached = searchCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.fetchedAt < SEARCH_CACHE_TTL) {
+    return {
+      movies: cached.movies,
+      page,
+      totalPages: cached.totalPages,
+      totalMovies: cached.totalPages * 32,
+      source: "live-search-cache",
+    };
+  }
+
+  const url = buildSearchUrl(query, page);
+  const html = await fetchHTML(url);
+  const movies = extractMoviesFromHTML(html);
+  const { totalPages, totalMovies } = extractPagination(html);
+
+  searchCache.set(cacheKey, { movies, totalPages, fetchedAt: Date.now() });
+
+  // Auto-merge into persistent delta
+  addMovies(movies);
+
+  return { movies, page, totalPages, totalMovies, source: "live-search" };
+}
