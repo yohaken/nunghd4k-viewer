@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchLivePage, searchMovies, searchLiveFromSource, fetchCategoryLive } from "@/lib/source";
+import { fetchModeLive, searchMovies, searchLiveFromSource, fetchCategoryLive } from "@/lib/source";
 import { getMovies } from "@/lib/data";
 
 export async function GET(req: NextRequest) {
@@ -79,9 +79,9 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Live nav-modes: fetch from nunghd4k.com
+  // Live nav-modes: fetch using WP REST API (proper pagination)
   try {
-    const result = await fetchLivePage(mode, page);
+    const result = await fetchModeLive(mode, page);
     return NextResponse.json({
       total: result.totalMovies,
       page: result.page,
