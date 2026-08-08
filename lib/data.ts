@@ -11,14 +11,6 @@ export interface Movie {
   url: string;
 }
 
-export interface MovieDetail {
-  slug: string;
-  movieId: string | null;
-  hlsEmbedUrl: string | null;
-  youtubeUrl: string | null;
-  playerUrls: string[];
-}
-
 export interface Category {
   name: string;
   url: string;
@@ -33,25 +25,44 @@ interface StaticData {
   totalPages: number;
 }
 
-let _data: StaticData | null = null;
+let _movies: Movie[] | null = null;
+let _categories: Category[] | null = null;
+let _scrapedAt: string | null = null;
 
-export function loadData(): StaticData {
-  if (_data) return _data;
+function init() {
+  if (_movies) return;
   const raw = fs.readFileSync(path.join(process.cwd(), "movies.json"), "utf8");
-  _data = JSON.parse(raw);
-  return _data!;
+  const data: StaticData = JSON.parse(raw);
+  _movies = data.movies;
+  _categories = data.categories;
+  _scrapedAt = data.scrapedAt;
+  console.log(`[data] Loaded ${_movies.length} movies, ${_categories.length} categories`);
 }
 
 export function getMovies(): Movie[] {
-  return loadData().movies;
+  init();
+  return _movies!;
 }
 
 export function getCategories(): Category[] {
-  return loadData().categories;
+  init();
+  return _categories!;
 }
 
 export function getScrapedAt(): string {
-  return loadData().scrapedAt;
+  init();
+  return _scrapedAt!;
+}
+
+/** Prepend new movies to the live cache (newest first) */
+export function addMovies(newMovies: Movie[]): void {
+  init();
+  const existingSlugs = new Set(_movies!.map((m) => m.slug));
+  const unique = newMovies.filter((m) => !existingSlugs.has(m.slug));
+  if (unique.length > 0) {
+    _movies!.unshift(...unique);
+    console.log(`[data] Merged ${unique.length} new movies, total now: ${_movies!.length}`);
+  }
 }
 
 export function findMovieBySlug(slug: string): Movie | undefined {
