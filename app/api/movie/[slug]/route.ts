@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findMovieBySlug } from "@/lib/data";
 import { extractMovieDetail } from "@/lib/scraper";
-import type { MovieDetail } from "@/lib/data";
+import type { MovieDetail } from "@/lib/scraper";
 
 const detailCache = new Map<string, MovieDetail>();
 
@@ -26,7 +26,8 @@ export async function GET(
     console.error(`[detail] ${slug}: ${msg}`);
     return NextResponse.json({
       ...movie,
-      hlsEmbedUrl: null,
+      fast168Url: null,
+      vidPhpUrl: null,
       youtubeUrl: null,
       playerUrls: [],
       error: msg,

@@ -57,15 +57,18 @@ export const VideoModal = memo(function VideoModal({ movie, onClose }: VideoModa
       .then((data) => {
         if (cancelled) return;
         const s: PlayerSource[] = [];
-        if (data.youtubeUrl) s.push({ label: "YouTube", url: data.youtubeUrl, type: "yt" });
-        if (data.hlsEmbedUrl) s.push({ label: "HLS Player", url: data.hlsEmbedUrl, type: "hls" });
-        (data.playerUrls || []).forEach((u: string, i: number) =>
-          s.push({
-            label: u.includes("vid.php") ? "ตัวเล่นเว็บ" : `ตัวเล่นสำรอง ${i + 1}`,
-            url: u,
-            type: "alt",
-          })
-        );
+        // 1. fast168 HLS embed — real full movie stream
+        if (data.fast168Url) s.push({ label: "ตัวเล่นหลัก (HLS)", url: data.fast168Url, type: "hls" });
+        // 2. vid.php player — full movie with JWPlayer
+        if (data.vidPhpUrl) s.push({ label: "ตัวเล่นเว็บ", url: data.vidPhpUrl, type: "alt" });
+        // 3. changePlayer backup URLs
+        (data.playerUrls || []).forEach((u: string, i: number) => {
+          // Skip duplicates with vidPhpUrl or fast168Url
+          if (u === data.vidPhpUrl || u === data.fast168Url) return;
+          s.push({ label: `ตัวเล่นสำรอง ${i + 1}`, url: u, type: "alt" });
+        });
+        // 4. YouTube — trailer, lowest priority
+        if (data.youtubeUrl) s.push({ label: "YouTube (ตัวอย่าง)", url: data.youtubeUrl, type: "yt" });
         setSources(s);
         setLoading(false);
         if (s.length > 0) tryServer(0, s);
