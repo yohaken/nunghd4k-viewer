@@ -1,12 +1,9 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import type { Metadata } from "next";
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [emails, setEmails] = useState<string[]>([]);
   const [admin, setAdmin] = useState("");
@@ -18,27 +15,17 @@ export default function SettingsPage() {
   const loadEmails = useCallback(async () => {
     try {
       const res = await fetch("/api/settings-emails");
-      if (res.status === 403) {
-        router.replace("/");
-        return;
-      }
       const data = await res.json();
       setEmails(data.allowed || []);
       setAdmin(data.admin || "");
     } catch {
       setError("ไม่สามารถโหลดข้อมูลได้");
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/login");
-      return;
-    }
-    if (status === "authenticated") {
-      loadEmails();
-    }
-  }, [status, loadEmails, router]);
+    loadEmails();
+  }, [loadEmails]);
 
   const handleAdd = useCallback(async () => {
     const e = newEmail.trim();
@@ -85,14 +72,6 @@ export default function SettingsPage() {
       setError("เกิดข้อผิดพลาด");
     }
   }, [admin]);
-
-  if (status === "loading") {
-    return (
-      <main className="min-h-screen flex items-center justify-center">
-        <p className="text-dim animate-pulse">กำลังโหลด...</p>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen p-4 max-w-lg mx-auto">

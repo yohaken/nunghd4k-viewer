@@ -1,7 +1,5 @@
-import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import {
-  isAdmin,
   getAllowedEmails,
   addEmail,
   removeEmail,
@@ -9,10 +7,6 @@ import {
 } from "@/lib/allowed-emails";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.email || !(await isAdmin(session.user.email))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   return NextResponse.json({
     admin: await getAdmin(),
     allowed: await getAllowedEmails(),
@@ -20,11 +14,6 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.email || !(await isAdmin(session.user.email))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { email } = await req.json();
   if (!email || typeof email !== "string") {
     return NextResponse.json({ error: "อีเมลไม่ถูกต้อง" }, { status: 400 });
@@ -42,11 +31,6 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session?.user?.email || !(await isAdmin(session.user.email))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { searchParams } = new URL(req.url);
   const email = searchParams.get("email");
   if (!email) {
