@@ -219,7 +219,8 @@ async function fetchWpPosts(endpoint: string, perPage: number, page: number): Pr
   totalPages: number;
 }> {
   const url = BASE_URL + "/wp-json/wp/v2/posts?" + endpoint
-    + "&per_page=" + perPage + "&page=" + page + "&_embed";
+    + "&per_page=" + perPage + "&page=" + page + "&_embed"
+    + "&orderby=date&order=desc";
 
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "application/json" },
