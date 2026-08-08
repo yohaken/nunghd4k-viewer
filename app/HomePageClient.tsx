@@ -73,6 +73,21 @@ export default function HomePage() {
       return;
     }
 
+    if (nav === "saved") {
+      try {
+        const saved: Movie[] = JSON.parse(localStorage.getItem("nunghd_saved") || "[]");
+        if (id !== requestId.current) return;
+        setMovies(saved);
+        setTotal(saved.length);
+        setTotalPages(1);
+        setSource("saved");
+      } catch {
+        if (id === requestId.current) setMovies([]);
+      }
+      if (id === requestId.current) setLoading(false);
+      return;
+    }
+
     const params = new URLSearchParams();
     params.set("limit", String(LIMIT));
     params.set("page", String(page));

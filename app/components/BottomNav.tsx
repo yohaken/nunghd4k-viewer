@@ -10,6 +10,7 @@ const BOTTOM_ITEMS = [
   { key: "new", icon: "🆕", label: "ใหม่ชนโรง" },
   { key: "imdb", icon: "⭐", label: "TOP IMDb" },
   { key: "request", icon: "✉️", label: "ขอหนัง" },
+  { key: "saved", icon: "💾", label: "บันทึกไว้" },
 ] as const;
 
 interface BottomNavProps {
