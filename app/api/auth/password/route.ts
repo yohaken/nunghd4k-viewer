@@ -17,7 +17,24 @@ export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const { password } = await request.json().catch(() => ({ password: "" }));
 
-  // Check rate limit
+  // Correct password always wins — bypass rate limit
+  if (password === PASSWORD) {
+    resetAttempts(ip);
+    const token = signToken();
+
+    const cookieStore = await cookies();
+    cookieStore.set(COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // Wrong password — check rate limit
   const limit = checkRateLimit(ip);
   if (!limit.allowed) {
     const mins = limit.blockedUntil
@@ -29,29 +46,12 @@ export async function POST(request: Request) {
     );
   }
 
-  if (password !== PASSWORD) {
-    const result = recordFailedAttempt(ip);
-    const msg = result.blocked
-      ? `รหัสผ่านไม่ถูกต้อง ถูกบล็อค 1 ชั่วโมง`
-      : `รหัสผ่านไม่ถูกต้อง เหลืออีก ${result.remaining} ครั้ง`;
-    return NextResponse.json(
-      { error: msg, remaining: result.remaining, blocked: result.blocked },
-      { status: 401 }
-    );
-  }
-
-  // Correct password - reset attempts and set cookie
-  resetAttempts(ip);
-  const token = signToken();
-
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  });
-
-  return NextResponse.json({ ok: true });
+  const result = recordFailedAttempt(ip);
+  const msg = result.blocked
+    ? `รหัสผ่านไม่ถูกต้อง ถูกบล็อค 1 ชั่วโมง`
+    : `รหัสผ่านไม่ถูกต้อง เหลืออีก ${result.remaining} ครั้ง`;
+  return NextResponse.json(
+    { error: msg, remaining: result.remaining, blocked: result.blocked },
+    { status: 401 }
+  );
 }
