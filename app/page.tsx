@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Movie, Category } from "@/lib/data";
 import { TopNav } from "./components/TopNav";
 import { BottomNav } from "./components/BottomNav";
@@ -27,6 +27,9 @@ export default function HomePage() {
   const [lastUpdate, setLastUpdate] = useState("");
   const [source, setSource] = useState("");
 
+  // Request counter to discard stale responses (race condition guard)
+  const requestId = useRef(0);
+
   useEffect(() => {
     fetch("/api/categories")
       .then((r) => r.json())
@@ -42,11 +45,13 @@ export default function HomePage() {
   }, []);
 
   const loadMovies = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
 
     if (nav === "request") {
       setMovies([]);
       setTotal(0);
+      setTotalPages(0);
       setLoading(false);
       return;
     }
@@ -55,33 +60,36 @@ export default function HomePage() {
     params.set("limit", String(LIMIT));
     params.set("page", String(page));
 
-    // Search always goes against the full index
     if (search || activeCat) {
       params.set("search", search || activeCat);
     } else {
-      // Live proxy — pass mode to scrape the right nunghd4k page
       params.set("mode", nav);
     }
 
     try {
       const res = await fetch(`/api/movies?${params}`);
       const data = await res.json();
+
+      // Discard if a newer request was already made
+      if (id !== requestId.current) return;
+
       setMovies(data.movies);
       setTotal(data.total);
       setTotalPages(data.totalPages || Math.ceil(data.total / LIMIT));
       setSource(data.source || "");
       if (data.source === "live") setTotalMovies(data.total);
     } catch {
-      setMovies([]);
+      if (id === requestId.current) {
+        setMovies([]);
+      }
     }
-    setLoading(false);
+    if (id === requestId.current) setLoading(false);
   }, [nav, search, activeCat, page]);
 
   useEffect(() => {
     loadMovies();
   }, [loadMovies]);
 
-  // Nav handler — pass mode directly (the API maps it to nunghd4k URLs)
   const handleNav = useCallback((key: string) => {
     setNav(key);
     setSearch("");
