@@ -41,6 +41,8 @@ export default function HomePage() {
   const [modalMovie, setModalMovie] = useState<Movie | null>(null);
   const [totalMovies, setTotalMovies] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("");
+  const [version, setVersion] = useState("");
+  const [buildTime, setBuildTime] = useState("");
   const [source, setSource] = useState("");
   const [showMenu, setShowMenu] = useState(false);
 
@@ -56,6 +58,8 @@ export default function HomePage() {
       .then((d) => {
         setTotalMovies(d.totalMovies);
         setLastUpdate(d.scrapedAt);
+        setVersion(d.version || "");
+        setBuildTime(d.buildTime || "");
       })
       .catch(() => {});
   }, []);
@@ -250,6 +254,19 @@ export default function HomePage() {
               NUNGHD4K
             </h1>
             <span className="text-dim text-[13px] hidden sm:inline">Viewer</span>
+            {version && (
+              <span
+                className="text-[10px] text-dim bg-bg px-1.5 py-0.5 rounded font-mono hidden sm:inline"
+                title={`Build: ${buildTime ? new Date(buildTime).toLocaleString("th-TH") : "unknown"}`}
+              >
+                v{version}
+              </span>
+            )}
+            {lastUpdate && (
+              <span className="text-[10px] text-dim/60 hidden md:inline" title="อัปเดตข้อมูลล่าสุด">
+                {formatRelative(lastUpdate)}
+              </span>
+            )}
           </div>
           <div className="flex-1 max-w-[420px]">
             <SearchBar
@@ -449,4 +466,20 @@ function findGroupForItem(key: string): string {
     }
   }
   return "genre";
+}
+
+function formatRelative(iso: string): string {
+  if (!iso) return "";
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return "";
+  const now = new Date();
+  const diff = now.getTime() - then.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "เมื่อสักครู่";
+  if (mins < 60) return `${mins}นาทีที่แล้ว`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}ชม.ที่แล้ว`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}วันที่แล้ว`;
+  return then.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }

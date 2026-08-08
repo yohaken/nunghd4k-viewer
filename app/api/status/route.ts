@@ -17,5 +17,7 @@ export async function GET() {
     totalCategories: getCategories().length,
     scrapedAt: getScrapedAt(),
     refresh: getRefreshStatus(),
+    version: process.env.BUILD_VERSION || "unknown",
+    buildTime: process.env.BUILD_TIME || null,
   });
 }
