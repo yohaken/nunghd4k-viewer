@@ -38,4 +38,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
   trustHost: true,
+  callbacks: {
+    authorized({ auth: session, request: { nextUrl } }) {
+      const isLoggedIn = !!session?.user;
+      const isLoginPage = nextUrl.pathname === "/login";
+      const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
+
+      if (isApiAuth) return true;
+      if (isLoginPage) {
+        if (isLoggedIn) {
+          return Response.redirect(new URL("/", nextUrl));
+        }
+        return true;
+      }
+
+      if (!isLoggedIn) {
+        return false; // redirect to signIn page
+      }
+
+      return true;
+    },
+  },
 });
