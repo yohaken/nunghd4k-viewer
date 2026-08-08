@@ -1,13 +1,7 @@
 import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
 
-export const { auth, handlers } = NextAuth({
-  providers: [
-    Credentials({
-      name: "firebase",
-      credentials: { idToken: { label: "Firebase ID Token", type: "text" } },
-    }),
-  ],
+export const { auth } = NextAuth({
+  providers: [],
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/login", error: "/login" },

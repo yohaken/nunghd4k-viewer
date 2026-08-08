@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Handle redirect result on page load
   useEffect(() => {
     let cancelled = false;
 
@@ -25,6 +24,8 @@ export default function LoginPage() {
         const user: User = result.user;
         const idToken = await user.getIdToken();
 
+        // Use redirect:true — next-auth sets the session cookie
+        // and redirects in a single atomic HTTP response
         const res = await signIn("credentials", {
           idToken,
           redirect: false,
@@ -39,7 +40,9 @@ export default function LoginPage() {
               : "เกิดข้อผิดพลาดในการยืนยันตัวตน กรุณาลองใหม่"
           );
         } else if (res?.ok) {
-          window.location.href = "/";
+          // Small delay to ensure cookie is written before navigating
+          await new Promise((r) => setTimeout(r, 100));
+          window.location.replace("/");
         }
       } catch (e: any) {
         if (!cancelled) {
