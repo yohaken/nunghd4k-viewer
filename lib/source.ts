@@ -133,16 +133,18 @@ export function searchMovies(q: string): Movie[] {
   });
 }
 
-// --- Live search from nunghd4k.com ---
+// --- Live search from nunghd4k.com (via WordPress REST API) ---
 
 const SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 min for search results
-const searchCache = new Map<string, { movies: Movie[]; totalPages: number; fetchedAt: number }>();
+const searchCache = new Map<string, { movies: Movie[]; totalPages: number; totalMovies: number; fetchedAt: number }>();
 
-function buildSearchUrl(query: string, page: number): string {
-  const encoded = encodeURIComponent(query);
-  return page <= 1
-    ? BASE_URL + "/search_movie/?keyword=" + encoded
-    : BASE_URL + "/search_movie/page/" + page + "/?keyword=" + encoded;
+interface WpPost {
+  slug: string;
+  link: string;
+  title: { rendered: string };
+  _embedded?: {
+    "wp:featuredmedia"?: Array<{ source_url: string }>;
+  };
 }
 
 export interface LiveSearchResult {
@@ -162,17 +164,40 @@ export async function searchLiveFromSource(query: string, page: number): Promise
       movies: cached.movies,
       page,
       totalPages: cached.totalPages,
-      totalMovies: cached.totalPages * 32,
+      totalMovies: cached.totalMovies,
       source: "live-search-cache",
     };
   }
 
-  const url = buildSearchUrl(query, page);
-  const html = await fetchHTML(url);
-  const movies = extractMoviesFromHTML(html);
-  const { totalPages, totalMovies } = extractPagination(html);
+  const perPage = 32;
+  const url = BASE_URL + "/wp-json/wp/v2/posts?search=" + encodeURIComponent(query)
+    + "&per_page=" + perPage + "&page=" + page + "&_embed";
 
-  searchCache.set(cacheKey, { movies, totalPages, fetchedAt: Date.now() });
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": UA,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!res.ok) throw new Error(`WP API HTTP ${res.status}`);
+
+  const posts: WpPost[] = await res.json();
+  const totalMovies = parseInt(res.headers.get("X-WP-Total") || "0", 10);
+  const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+
+  const movies: Movie[] = posts.map((p) => ({
+    slug: p.slug,
+    title: p.title.rendered.replace(/&#8211;/g, "–").replace(/&#8217;/g, "'").replace(/&amp;/g, "&"),
+    image: p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "",
+    rating: null,
+    quality: null,
+    language: null,
+    url: p.link,
+  }));
+
+  searchCache.set(cacheKey, { movies, totalPages, totalMovies, fetchedAt: Date.now() });
 
   // Auto-merge into persistent delta
   addMovies(movies);
