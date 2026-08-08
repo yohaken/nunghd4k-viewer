@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
+  const [csrfToken, setCsrfToken] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/csrf")
+      .then((r) => r.json())
+      .then((d) => setCsrfToken(d.csrfToken ?? ""))
+      .catch(() => {});
+  }, []);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4">
@@ -30,10 +38,11 @@ export default function LoginPage() {
             action="/api/auth/signin/google"
             onSubmit={() => setLoading(true)}
           >
+            <input type="hidden" name="csrfToken" value={csrfToken} />
             <input type="hidden" name="callbackUrl" value="/" />
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !csrfToken}
               className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-white hover:bg-gray-100 text-gray-800 font-medium rounded-btn transition-colors cursor-pointer border border-gray-300 disabled:opacity-50"
             >
               <svg
