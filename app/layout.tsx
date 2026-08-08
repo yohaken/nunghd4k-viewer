@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Sarabun } from "next/font/google";
+import { AuthProvider } from "./components/AuthProvider";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -24,7 +25,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={`${poppins.variable} ${sarabun.variable}`}>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

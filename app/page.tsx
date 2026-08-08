@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import type { Movie, Category } from "@/lib/data";
 import { TopNav } from "./components/TopNav";
 import { BottomNav } from "./components/BottomNav";
@@ -14,6 +16,8 @@ import { Pagination } from "./components/Pagination";
 const LIMIT = 32;
 
 export default function HomePage() {
+  const { data: session } = useSession();
+  const router = useRouter();
   const [nav, setNav] = useState("home");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -23,11 +27,12 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCat, setActiveCat] = useState("");
-  const [activeCatUrl, setActiveCatUrl] = useState(""); // URL for live category fetch
+  const [activeCatUrl, setActiveCatUrl] = useState("");
   const [modalMovie, setModalMovie] = useState<Movie | null>(null);
   const [totalMovies, setTotalMovies] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("");
   const [source, setSource] = useState("");
+  const [showMenu, setShowMenu] = useState(false);
 
   const requestId = useRef(0);
 
@@ -184,13 +189,89 @@ export default function HomePage() {
               onClear={handleClear}
             />
           </div>
-          <div className="text-xs text-dim whitespace-nowrap text-right hidden sm:block">
-            <span className="text-primary font-bold">{totalMovies.toLocaleString()}</span> เรื่อง
-            {sourceLabel && (
-              <span className="ml-1 px-1 py-0.5 rounded text-[10px] bg-primary/15 text-primary">
-                {sourceLabel}
-              </span>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-dim whitespace-nowrap text-right hidden sm:block">
+              <span className="text-primary font-bold">{totalMovies.toLocaleString()}</span> เรื่อง
+              {sourceLabel && (
+                <span className="ml-1 px-1 py-0.5 rounded text-[10px] bg-primary/15 text-primary">
+                  {sourceLabel}
+                </span>
+              )}
+            </div>
+
+            {/* Settings gear — admin only */}
+            {session?.user?.email === "yohaken@gmail.com" && (
+              <button
+                onClick={() => router.push("/settings")}
+                title="ตั้งค่า"
+                className="text-dim hover:text-text transition-colors cursor-pointer"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="10" cy="10" r="2.5" />
+                  <path d="M10 1.5a1.5 1.5 0 0 1 1.5 1.5c0 .7.5 1.1 1.2.8l1.3-.5a1.5 1.5 0 0 1 1.9.7l.5.8a1.5 1.5 0 0 1-.4 2l-.9.7c-.5.4-.5 1 0 1.4l.9.7a1.5 1.5 0 0 1 .4 2l-.5.9a1.5 1.5 0 0 1-1.9.7l-1.3-.5c-.7-.3-1.2 0-1.2.7A1.5 1.5 0 0 1 10 17.5a1.5 1.5 0 0 1-1.5-1.5c0-.7-.5-1.1-1.2-.8l-1.3.5a1.5 1.5 0 0 1-1.9-.7l-.5-.8a1.5 1.5 0 0 1 .4-2l.9-.7c.5-.4.5-1 0-1.4l-.9-.7a1.5 1.5 0 0 1-.4-2l.5-.9a1.5 1.5 0 0 1 1.9-.7l1.3.5c.7.3 1.2 0 1.2-.8A1.5 1.5 0 0 1 10 1.5z" />
+                </svg>
+              </button>
             )}
+
+            {/* User menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-dim hover:text-text transition-colors cursor-pointer"
+              >
+                <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center overflow-hidden font-heading">
+                  {session?.user?.image ? (
+                    <img
+                      src={session.user.image}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    session?.user?.name?.charAt(0)?.toUpperCase() ||
+                    session?.user?.email?.charAt(0)?.toUpperCase() ||
+                    "?"
+                  )}
+                </span>
+                <span className="hidden md:inline max-w-[100px] truncate">
+                  {session?.user?.name || session?.user?.email}
+                </span>
+              </button>
+
+              {showMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-surface border border-border rounded-btn shadow-lg z-20 py-1">
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-xs text-text font-medium truncate font-body">
+                        {session?.user?.name}
+                      </p>
+                      <p className="text-[11px] text-dim truncate font-body">
+                        {session?.user?.email}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => signOut({ callbackUrl: "/login" })}
+                      className="w-full text-left px-3 py-2 text-sm text-dim hover:text-danger hover:bg-bg transition-colors cursor-pointer font-body"
+                    >
+                      ออกจากระบบ
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
