@@ -10,7 +10,6 @@ let _catSlugToId: Map<string, number> | null = null;
 async function getWpCategoryMap(): Promise<Map<string, number>> {
   if (_catSlugToId) return _catSlugToId;
   _catSlugToId = new Map();
-  const slugs = new Set<string>();
   try {
     let page = 1;
     while (true) {
@@ -22,8 +21,8 @@ async function getWpCategoryMap(): Promise<Map<string, number>> {
       const cats: Array<{ id: number; slug: string; name: string }> = await res.json();
       if (cats.length === 0) break;
       for (const c of cats) {
-        slugs.add(c.slug);
-        if (!_catSlugToId.has(c.slug)) _catSlugToId.set(c.slug, c.id);
+        const s = c.slug.toLowerCase();
+        if (!_catSlugToId.has(s)) _catSlugToId.set(s, c.id);
       }
       if (cats.length < 100) break;
       page++;
@@ -36,10 +35,10 @@ async function getWpCategoryMap(): Promise<Map<string, number>> {
 export function slugFromCatUrl(url: string): string | null {
   try {
     const p = new URL(url).pathname;
-    return p.replace(/\/+$/, "").split("/").pop() || null;
+    return (p.replace(/\/+$/, "").split("/").pop() || null)?.toLowerCase() ?? null;
   } catch {
     const m = url.match(/\/([^/]+)\/?$/);
-    return m ? m[1] : null;
+    return m ? m[1].toLowerCase() : null;
   }
 }
 
@@ -269,8 +268,27 @@ export async function fetchCategoryLive(catUrlOrSlug: string, page: number): Pro
   const slug = slugFromCatUrl(catUrlOrSlug);
   if (!slug) throw new Error("Invalid category URL");
 
+  let catId: number | undefined;
   const catMap = await getWpCategoryMap();
-  const catId = catMap.get(slug);
+  catId = catMap.get(slug);
+
+  // Fallback: direct WP API lookup by slug
+  if (!catId) {
+    try {
+      const lookupRes = await fetch(
+        BASE_URL + "/wp-json/wp/v2/categories?slug=" + slug,
+        { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(10000) }
+      );
+      if (lookupRes.ok) {
+        const cats: Array<{ id: number }> = await lookupRes.json();
+        if (cats.length > 0) {
+          catId = cats[0].id;
+          catMap.set(slug, catId); // cache for next time
+        }
+      }
+    } catch { /* keep going */ }
+  }
+
   if (!catId) throw new Error(`Category not found: ${slug}`);
 
   const cacheKey = `cat:${catId}:${page}`;
