@@ -57,18 +57,29 @@ export const VideoModal = memo(function VideoModal({ movie, onClose }: VideoModa
       .then((data) => {
         if (cancelled) return;
         const s: PlayerSource[] = [];
+        const seen = new Set<string>();
+        const add = (label: string, url: string, type: PlayerSource["type"]) => {
+          if (!url || seen.has(url)) return;
+          seen.add(url);
+          s.push({ label, url, type });
+        };
+
         // 1. fast168 HLS embed — real full movie stream
-        if (data.fast168Url) s.push({ label: "ตัวเล่นหลัก (HLS)", url: data.fast168Url, type: "hls" });
+        add("ตัวเล่นหลัก (HLS)", data.fast168Url, "hls");
         // 2. vid.php player — full movie with JWPlayer
-        if (data.vidPhpUrl) s.push({ label: "ตัวเล่นเว็บ", url: data.vidPhpUrl, type: "alt" });
+        add("ตัวเล่นเว็บ", data.vidPhpUrl, "alt");
         // 3. changePlayer backup URLs
         (data.playerUrls || []).forEach((u: string, i: number) => {
-          // Skip duplicates with vidPhpUrl or fast168Url
-          if (u === data.vidPhpUrl || u === data.fast168Url) return;
-          s.push({ label: `ตัวเล่นสำรอง ${i + 1}`, url: u, type: "alt" });
+          add(`ตัวเล่นสำรอง ${i + 1}`, u, "alt");
         });
-        // 4. YouTube — trailer, lowest priority
-        if (data.youtubeUrl) s.push({ label: "YouTube (ตัวอย่าง)", url: data.youtubeUrl, type: "yt" });
+        // 4. Any additional iframes from the page (not already included)
+        (data.allIframes || []).forEach((u: string, i: number) => {
+          // Skip youtube (handled separately) and duplicates
+          if (u.includes("youtube.com") || u.includes("youtu.be")) return;
+          add(`แหล่งอื่น ${i + 1}`, u, "alt");
+        });
+        // 5. YouTube — trailer, lowest priority
+        add("YouTube (ตัวอย่าง)", data.youtubeUrl, "yt");
         setSources(s);
         setLoading(false);
         if (s.length > 0) tryServer(0, s);
