@@ -13,6 +13,8 @@ import { CategoryChips } from "./components/CategoryChips";
 import { VideoModal } from "./components/VideoModal";
 import { Pagination } from "./components/Pagination";
 
+export const dynamic = "force-dynamic";
+
 const LIMIT = 32;
 
 export default function HomePage() {
