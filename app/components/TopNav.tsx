@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { key: "new", label: "ดูหนังใหม่ชนโรง" },
   { key: "imdb", label: "TOP IMDb" },
   { key: "request", label: "ขอหนัง" },
+  { key: "saved", label: "บันทึกไว้" },
 ] as const;
 
 interface TopNavProps {

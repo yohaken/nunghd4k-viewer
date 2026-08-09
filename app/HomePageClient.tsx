@@ -229,17 +229,19 @@ export default function HomePage() {
       ? "ขอหนัง"
       : nav === "imdb"
         ? "TOP IMDb"
-        : activeCat
-          ? `หมวด: ${activeCat}${source.includes("live") ? " (สด)" : ""}`
-          : search
-            ? `ผลค้นหา: "${search}"${source.includes("live") ? " (สด)" : ""}`
-            : {
-                home: "หนังทั้งหมด",
-                online: "ดูหนังออนไลน์",
-                netflix: "ดูหนังNETFLIX",
-                thai: "ดูหนังไทย",
-                new: "ดูหนังใหม่ชนโรง",
-              }[nav] || "หนังทั้งหมด";
+        : nav === "saved"
+          ? "บันทึกไว้"
+          : activeCat
+            ? `หมวด: ${activeCat}${source.includes("live") ? " (สด)" : ""}`
+            : search
+              ? `ผลค้นหา: "${search}"${source.includes("live") ? " (สด)" : ""}`
+              : {
+                  home: "หนังทั้งหมด",
+                  online: "ดูหนังออนไลน์",
+                  netflix: "ดูหนังNETFLIX",
+                  thai: "ดูหนังไทย",
+                  new: "ดูหนังใหม่ชนโรง",
+                }[nav] || "หนังทั้งหมด";
 
   const sourceLabel =
     source === "live-cat" || source === "live-cat-cache" ? "สด" :
@@ -371,22 +373,26 @@ export default function HomePage() {
 
       <TopNav active={nav} onSelect={handleNav} />
 
-      <CategoryChips
-        categories={categories}
-        active={activeCat}
-        onSelect={handleCategory}
-      />
+      {nav !== "saved" && (
+        <CategoryChips
+          categories={categories}
+          active={activeCat}
+          onSelect={handleCategory}
+        />
+      )}
 
       <main className="flex-1 pb-20 md:pb-0 overflow-x-hidden">
         <div className="max-w-[1500px] mx-auto flex gap-5 p-4 md:p-6 overflow-x-hidden">
-          {/* Desktop: FilterPanel as sidebar */}
-          <FilterPanel
-            active={activeFilter}
-            onSelect={handleFilter}
-          />
+          {/* Desktop: FilterPanel as sidebar — hidden in saved mode */}
+          {nav !== "saved" && (
+            <FilterPanel
+              active={activeFilter}
+              onSelect={handleFilter}
+            />
+          )}
 
           {/* Mobile: overlay FilterPanel */}
-          {showFilterMobile && (
+          {showFilterMobile && nav !== "saved" && (
             <FilterPanel
               active={activeFilter}
               onSelect={handleFilter}
@@ -404,7 +410,13 @@ export default function HomePage() {
               <span className="text-dim text-[13px]">{total.toLocaleString()} เรื่อง</span>
             </div>
 
-            {nav === "request" ? (
+            {nav === "saved" && movies.length === 0 && !loading ? (
+              <div className="text-center py-16 text-dim">
+                <div className="text-5xl mb-3">💾</div>
+                <p className="font-body">ยังไม่มีหนังที่บันทึกไว้</p>
+                <p className="text-xs mt-1 font-body">กด 💾 ในหน้าดูหนังเพื่อบันทึกไว้ดูภายหลัง</p>
+              </div>
+            ) : nav === "request" ? (
               <div className="text-center py-16 text-dim">
                 <div className="text-5xl mb-3">📩</div>
                 <p>ติดต่อขอหนังผ่านเว็บหลัก</p>
@@ -424,12 +436,14 @@ export default function HomePage() {
                   loading={loading}
                   onMovieClick={setModalMovie}
                 />
-                <Pagination
-                  page={page}
-                  totalPages={totalPages}
-                  total={total}
-                  onPage={handlePage}
-                />
+                {nav !== "saved" && (
+                  <Pagination
+                    page={page}
+                    totalPages={totalPages}
+                    total={total}
+                    onPage={handlePage}
+                  />
+                )}
               </>
             )}
           </div>
