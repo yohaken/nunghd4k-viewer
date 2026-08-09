@@ -316,6 +316,21 @@ export const VideoModal = memo(function VideoModal({ movie, onClose }: VideoModa
               </button>
             )}
 
+            {/* Open in new tab */}
+            {!loading && !allFailed && server && (
+              <button
+                onClick={() => window.open(server.url, "_blank")}
+                title="เปิดในหน้าต่างใหม่ (กรอวิดีโอ, Fullscreen)"
+                className="w-8 h-8 rounded-full border border-border text-dim hover:text-text hover:border-text flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
+            )}
+
             {/* Close */}
             <button
               onClick={onClose}
@@ -374,6 +389,12 @@ export const VideoModal = memo(function VideoModal({ movie, onClose }: VideoModa
 
         {/* Action row */}
         <div className="px-4 py-2.5 border-t border-border flex items-center gap-2 flex-wrap">
+          {/* Hint for seeking */}
+          {!loading && !allFailed && server && (
+            <span className="text-dim/50 text-[10px] italic w-full mb-0.5">
+              💡 กด ↗ เพื่อเปิดในหน้าต่างใหม่ — รองรับการกรอวิดีโอและ Fullscreen
+            </span>
+          )}
           {allFailed ? (
             <>
               <button
