@@ -52,6 +52,8 @@ export async function GET(
       youtubeUrl: null,
       playerUrls: [],
       allIframes: [],
+      m3u8Url: null,
+      fallbackM3u8Urls: [],
       error: msg,
     });
   }

@@ -8,7 +8,9 @@ export interface MovieDetail {
   vidPhpUrl: string | null;
   youtubeUrl: string | null;
   playerUrls: string[];
-  allIframes: string[];  // every iframe found on the page
+  allIframes: string[];
+  m3u8Url: string | null;
+  fallbackM3u8Urls: string[];
 }
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -26,35 +28,34 @@ async function fetchHTML(url: string): Promise<string> {
   return res.text();
 }
 
-/**
- * Try to extract a movie ID from a URL or string.
- * Handles many formats: id=abc123, id=mD0r555643, /embed/123, vid.php?id=..., etc.
- */
 function extractMovieId(str: string): string | null {
-  // Standard id=<value> in query string
   const idMatch = str.match(/[?&]id=([\w-]+)/);
   if (idMatch && idMatch[1] !== "nunghd4k") return idMatch[1];
-
-  // vid.php endpoint
-  const vidMatch = str.match(/id\/([\w-]+)/);
-  if (vidMatch && vidMatch[1] !== "nunghd4k") return vidMatch[1];
-
   return null;
 }
 
-/**
- * Check if a URL looks like a real movie/video embed (not ad, tracker, etc.)
- */
-function isVideoUrl(url: string): boolean {
-  if (!url || url.length < 10) return false;
-  const lower = url.toLowerCase();
-  // Skip ads, trackers, images, social media embeds
-  const skip = ["facebook.com", "googletagmanager", "google-analytics", "doubleclick",
-    ".gif", ".jpg", ".png", ".svg", ".webp", "ajax.google", "connect.facebook"];
-  for (const s of skip) {
-    if (lower.includes(s)) return false;
+export async function fetchM3u8Urls(movieId: string): Promise<{ m3u8Url: string | null; fallbackM3u8Urls: string[] }> {
+  try {
+    const fast168Html = await fetchHTML(
+      `https://play.gan-play.com/embed/fast168.php?key=nunghd4k&id=${movieId}&ep=&type=`
+    );
+
+    const workerMatch = fast168Html.match(/WORKER_URL\s*=\s*"([^"]*)"/);
+    const m3u8Url = workerMatch && workerMatch[1] ? workerMatch[1] : null;
+
+    const fallbackMatch = fast168Html.match(/FALLBACK_URLS\s*=\s*(\[[^\]]*\])/);
+    let fallbackM3u8Urls: string[] = [];
+    if (fallbackMatch) {
+      const urls = fallbackMatch[1].match(/"([^"]+)"/g);
+      if (urls) {
+        fallbackM3u8Urls = urls.map(u => u.replace(/"/g, ""));
+      }
+    }
+
+    return { m3u8Url, fallbackM3u8Urls };
+  } catch {
+    return { m3u8Url: null, fallbackM3u8Urls: [] };
   }
-  return true;
 }
 
 export async function extractMovieDetail(movie: Movie): Promise<MovieDetail> {
@@ -62,65 +63,62 @@ export async function extractMovieDetail(movie: Movie): Promise<MovieDetail> {
   const html = await fetchHTML(movie.url);
   const $ = load(html);
 
-  // ── Collect ALL iframe srcs on the page ───────────────────────
+  // Collect ALL iframes
   const allIframesRaw: string[] = [];
   $("iframe").each((_i, el) => {
     const src = $(el).attr("src") || "";
-    if (isVideoUrl(src)) allIframesRaw.push(src);
+    if (src.length > 10 &&
+        !src.includes("facebook.com") &&
+        !src.includes("googletagmanager") &&
+        !src.includes("google-analytics") &&
+        !src.includes("doubleclick") &&
+        !src.includes("ajax.google")) {
+      allIframesRaw.push(src);
+    }
   });
-
-  // Deduplicate
   const allIframes = [...new Set(allIframesRaw)];
 
-  // ── Extract movieId from as many sources as possible ──────────
+  // Extract movieId — PRIORITIZE vid.php links (real numeric IDs)
   let movieId: string | null = null;
 
-  // 1. Try dedicated player selectors first
-  const playerSelectors = [
-    $("#player-wrapper iframe[id]").first().attr("src"),
-    $("#player-iframe").attr("src"),
-    $("#player-url").attr("src"),
-    $("iframe[id]").first().attr("src"),
-    $("[class*='player'] iframe").first().attr("src"),
-    $("[id*='player'] iframe").first().attr("src"),
-  ];
+  // 1. Search for vid.php links in onclick handlers (most reliable)
+  $("button[onclick*=\"changePlayer\"]").each((_i, el) => {
+    const onclick = $(el).attr("onclick") || "";
+    const vidMatch = onclick.match(/vid\.php\?key=nunghd4k&id=(\d+)/);
+    if (vidMatch && !movieId) {
+      movieId = vidMatch[1];
+    }
+  });
 
-  for (const src of playerSelectors) {
-    if (!src) continue;
-    const id = extractMovieId(src);
-    if (id) { movieId = id; break; }
+  // 2. Search entire HTML for vid.php with numeric id
+  if (!movieId) {
+    const vidMatch = html.match(/vid\.php\?key=nunghd4k&id=(\d+)/);
+    if (vidMatch) movieId = vidMatch[1];
   }
 
-  // 2. Try all iframes
+  // 3. Search scripts for apiurl pattern
+  if (!movieId) {
+    $("script").each((_i, el) => {
+      const text = $(el).html() || "";
+      const apiMatch = text.match(/id=(\d+)/);
+      if (apiMatch && !movieId) movieId = apiMatch[1];
+    });
+  }
+
+  // 4. Last resort: any id from iframes
+  if (!movieId) {
+    for (const src of allIframes) {
+      const id = extractMovieId(src);
+      if (id && /^\d+$/.test(id)) { movieId = id; break; }
+    }
+  }
+
+  // 5. Fallback to any id (alphanumeric)
   if (!movieId) {
     for (const src of allIframes) {
       const id = extractMovieId(src);
       if (id) { movieId = id; break; }
     }
-  }
-
-  // 3. Try changePlayer button onclick attributes
-  if (!movieId) {
-    $("button[onclick*=\"changePlayer\"]").each((_i, el) => {
-      const onclick = $(el).attr("onclick") || "";
-      const id = extractMovieId(onclick);
-      if (id && !movieId) movieId = id;
-    });
-  }
-
-  // 4. Try inline scripts for player initialization
-  if (!movieId) {
-    $("script").each((_i, el) => {
-      const text = $(el).html() || "";
-      const id = extractMovieId(text);
-      if (id && !movieId) movieId = id;
-    });
-  }
-
-  // 5. Last resort: search entire HTML for vid.php with id
-  if (!movieId) {
-    const m = html.match(/vid\.php\?[^"']*?[?&;]id=([\w-]+)/);
-    if (m && m[1] !== "nunghd4k") movieId = m[1];
   }
 
   // ── Build player URLs ─────────────────────────────────────────
@@ -132,7 +130,16 @@ export async function extractMovieDetail(movie: Movie): Promise<MovieDetail> {
     ? `https://www.nunghd4k.com/play/vid.php?key=nunghd4k&id=${movieId}`
     : null;
 
-  // ── YouTube (trailers) ────────────────────────────────────────
+  // ── Fetch m3u8 stream URLs ────────────────────────────────────
+  let m3u8Url: string | null = null;
+  let fallbackM3u8Urls: string[] = [];
+  if (movieId) {
+    const m3u8Data = await fetchM3u8Urls(movieId);
+    m3u8Url = m3u8Data.m3u8Url;
+    fallbackM3u8Urls = m3u8Data.fallbackM3u8Urls;
+  }
+
+  // ── YouTube ───────────────────────────────────────────────────
   let youtubeUrl: string | null = null;
   for (const src of allIframes) {
     if ((src.includes("youtube.com/embed/") || src.includes("youtu.be/")) && !youtubeUrl) {
@@ -140,7 +147,7 @@ export async function extractMovieDetail(movie: Movie): Promise<MovieDetail> {
     }
   }
 
-  // ── changePlayer button URLs ──────────────────────────────────
+  // ── changePlayer backup URLs ──────────────────────────────────
   const playerUrls: string[] = [];
   $("button[onclick*=\"changePlayer\"]").each((_i, el) => {
     const onclick = $(el).attr("onclick") || "";
@@ -148,16 +155,5 @@ export async function extractMovieDetail(movie: Movie): Promise<MovieDetail> {
     if (m && m[1] && !playerUrls.includes(m[1])) playerUrls.push(m[1]);
   });
 
-  // ── Fallback: if no movieId found, use the best iframe directly
-  //    This handles movies with non-standard embed formats
-  if (!movieId && !playerUrls.length) {
-    for (const src of allIframes) {
-      const lower = src.toLowerCase();
-      if (lower.includes("vid.php") || lower.includes("embed") || lower.includes("play") || lower.includes("player")) {
-        if (!playerUrls.includes(src)) playerUrls.push(src);
-      }
-    }
-  }
-
-  return { slug, movieId, fast168Url, vidPhpUrl, youtubeUrl, playerUrls, allIframes };
+  return { slug, movieId, fast168Url, vidPhpUrl, youtubeUrl, playerUrls, allIframes, m3u8Url, fallbackM3u8Urls };
 }
